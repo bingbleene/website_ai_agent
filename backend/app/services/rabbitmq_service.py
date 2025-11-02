@@ -5,6 +5,7 @@ import aio_pika
 import json
 from typing import Callable, Dict
 from loguru import logger
+from datetime import datetime  # <-- HÃY CHẮC CHẮN BẠN ĐÃ IMPORT CÁI NÀY
 
 from app.core.config import settings
 
@@ -15,15 +16,19 @@ class RabbitMQService:
         self.channel = None
         self.exchange_name = "ai_news_exchange"
         self.enabled = bool(settings.RABBITMQ_HOST and settings.RABBITMQ_HOST.strip())
+        
+        # 👇 THÊM "news_fetching" VÀO ĐÂY 👇
         self.queues = {
             "article_processing": "article_processing_queue",
             "email_sending": "email_sending_queue",
-            "analytics": "analytics_queue"
+            "analytics": "analytics_queue",
+            "news_fetching": "news_fetching_queue"  # <-- DÒNG MỚI
         }
         
         if not self.enabled:
             logger.warning("⚠️ RabbitMQ disabled (no config) - tasks will run synchronously")
     
+    # ... (Hàm connect và close giữ nguyên) ...
     async def connect(self):
         """Connect to RabbitMQ"""
         if not self.enabled:
@@ -39,17 +44,21 @@ class RabbitMQService:
             self.connection = await aio_pika.connect_robust(connection_url)
             self.channel = await self.connection.channel()
             
-            # Declare exchange
             self.exchange = await self.channel.declare_exchange(
                 self.exchange_name,
                 aio_pika.ExchangeType.TOPIC,
                 durable=True
             )
             
-            # Declare queues
+            # Tự động khai báo queue mới
             for queue_key, queue_name in self.queues.items():
                 queue = await self.channel.declare_queue(queue_name, durable=True)
-                await queue.bind(self.exchange, routing_key=f"{queue_key}.*")
+                
+                # Sửa routing_key để linh hoạt hơn
+                if queue_key == "news_fetching":
+                    await queue.bind(self.exchange, routing_key=f"{queue_key}.*")
+                else:
+                    await queue.bind(self.exchange, routing_key=f"{queue_key}.*")
             
             logger.info("✅ Connected to RabbitMQ")
             
@@ -62,7 +71,8 @@ class RabbitMQService:
         if self.connection:
             await self.connection.close()
             logger.info("✅ Closed RabbitMQ connection")
-    
+
+    # ... (Hàm publish_message và consume_queue giữ nguyên) ...
     async def publish_message(
         self,
         queue_type: str,
@@ -111,15 +121,15 @@ class RabbitMQService:
         except Exception as e:
             logger.error(f"❌ Queue consumption error: {e}")
             raise
-    
-    # Task publishers
+
+    # ... (Các hàm publish_article_processing_task, publish_email_task giữ nguyên) ...
     async def publish_article_processing_task(self, article_id: str, operations: list):
         """Publish article processing task"""
         await self.publish_message(
             queue_type="article_processing",
             message={
                 "article_id": article_id,
-                "operations": operations,  # ["summarize", "categorize", "embed"]
+                "operations": operations,
                 "timestamp": datetime.utcnow().isoformat()
             },
             routing_key="process"
@@ -137,10 +147,17 @@ class RabbitMQService:
             routing_key="send"
         )
 
+    # 👇 DÁN HÀM MỚI NÀY VÀO CUỐI CLASS 👇
+    async def publish_news_fetch_task(self, feed_url: str):
+        """Publish news fetching task"""
+        await self.publish_message(
+            queue_type="news_fetching",
+            message={
+                "feed_url": feed_url,
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            routing_key="fetch"
+        )
 
 # Singleton instance
 rabbitmq_service = RabbitMQService()
-
-
-# Import for timestamp
-from datetime import datetime

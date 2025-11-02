@@ -1,16 +1,19 @@
-FROM node:18-alpine
+# Sử dụng base image
+FROM node:lts-alpine
 
+# Đặt thư mục làm việc
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json ./
-RUN npm install
+# Sao chép và cài đặt dependencies
+# Đảm bảo bạn có 2 dòng này:
+COPY package.json package-lock.json ./
+RUN npm install 
 
-# Copy application
+# Sao chép các file code còn lại
 COPY . .
 
-# Expose port
+# Khai báo port (đã có trong docker-compose, nhưng tốt nhất nên có)
 EXPOSE 3000
 
-# Run application
-CMD ["npm", "run", "dev", "--", "--host"]
+# Lệnh chạy ứng dụng (đã có trong docker-compose.yml)
+#CMD ["npm", "run", "dev", "--", "--host"]

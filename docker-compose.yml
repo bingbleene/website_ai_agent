@@ -1,25 +1,14 @@
 version: '3.8'
 
 services:
-  # MongoDB (using Atlas - external)
-  # For local MongoDB:
-  # mongodb:
-  #   image: mongo:latest
-  #   ports:
-  #     - "27017:27017"
-  #   environment:
-  #     MONGO_INITDB_ROOT_USERNAME: admin
-  #     MONGO_INITDB_ROOT_PASSWORD: password
-  #   volumes:
-  #     - mongodb_data:/data/db
 
-  # RabbitMQ
+  # RabbitMQ (Không thay đổi)
   rabbitmq:
     image: rabbitmq:3-management
     container_name: ai_news_rabbitmq
     ports:
-      - "5672:5672"      # AMQP
-      - "15672:15672"    # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -34,17 +23,17 @@ services:
     container_name: ai_news_backend
     ports:
       - "8000:8000"
-    environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - RABBITMQ_HOST=rabbitmq
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
     depends_on:
       - rabbitmq
     volumes:
       - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    
+    # === SỬA LỖI 2 (Connection Refused) ===
+    # Thêm "sleep 10 &&" để chờ RabbitMQ khởi động xong
+    command: /bin/sh -c "sleep 10 && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    
+    env_file:
+      - .env
 
   # Frontend (React + Vite)
   frontend:
@@ -63,6 +52,21 @@ services:
       - /app/node_modules
     command: npm run dev -- --host
 
+  # Worker (Scheduler & News Fetcher)
+  ai_news_worker:
+    build: ./backend
+    volumes:
+      - ./backend:/app  
+    # === SỬA LỖI 1 (ModuleNotFoundError) ===
+    # Chạy "worke.py" thay vì "app/worker.py"
+    command: ["python", "-u", "-m", "app.worker"]
+    
+    depends_on:
+      - rabbitmq
+      - backend
+    env_file:
+      - .env
+    restart: on-failure
+
 volumes:
   rabbitmq_data:
-  # mongodb_data:  # If using local MongoDB

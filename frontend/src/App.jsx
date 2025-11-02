@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import React from 'react';
 
 // Layouts
 import PublicLayout from './layouts/PublicLayout';
 import AdminLayout from './layouts/AdminLayout';
+import Chatbot from './components/public/Chatbot'; // <-- Import đã có
 
 // Pages
 import Home from './pages/Home';
@@ -25,15 +27,16 @@ function PrivateRoute({ children }) {
 function App() {
   return (
     <BrowserRouter>
+      {/* Routes của bạn sẽ render các trang */}
       <Routes>
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
           <Route path="articles" element={<Articles />} />
           <Route path="article/:id" element={<ArticleDetail />} />
         </Route>
-        
+
         <Route path="/login" element={<Login />} />
-        
+
         <Route
           path="/admin"
           element={
@@ -50,6 +53,10 @@ function App() {
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
+
+      {/* 👇 DÒNG QUAN TRỌNG NHẤT LÀ ĐÂY 👇 */}
+      <Chatbot />
+
     </BrowserRouter>
   );
 }

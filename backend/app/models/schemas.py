@@ -2,7 +2,7 @@
 Pydantic Models and Schemas
 """
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
 
@@ -267,14 +267,45 @@ class RecommendationResponse(BaseModel):
 # ===================== Chatbot Schemas =====================
 
 class ChatMessage(BaseModel):
-    role: str = Field(..., pattern="^(user|assistant|system)$")
+    role: Optional[str] = "user"
+    type: Optional[str] = None  # For frontend compatibility
     content: str
+    
+    @validator("role")
+    def validate_role(cls, v, values):
+        # Handle both role and type fields
+        if "type" in values and values["type"]:
+            if values["type"] == "bot":
+                return "assistant"
+            return "user"
+        # If no type, validate role directly
+        if v not in ["user", "assistant", "system"]:
+            return "user"  # Default to user if invalid
+        return v
 
 
 class ChatRequest(BaseModel):
     user_id: Optional[str] = None
     message: str
-    conversation_history: List[ChatMessage] = []
+    conversation_history: List[Union[ChatMessage, Dict[str, Any]]] = []
+    
+    @validator("conversation_history")
+    def validate_history(cls, v):
+        # Convert each message to proper ChatMessage format
+        messages = []
+        for msg in v:
+            if isinstance(msg, dict):
+                # Handle dictionary format from frontend
+                msg_type = msg.get("type", "user")
+                role = "assistant" if msg_type == "bot" else "user"
+                messages.append(ChatMessage(
+                    role=role,
+                    content=msg.get("content", ""),
+                    type=msg_type
+                ))
+            else:
+                messages.append(msg)
+        return messages
 
 
 class ChatResponse(BaseModel):

@@ -11,22 +11,73 @@ from loguru import logger
 from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.api.v1 import api_router
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.services.rabbitmq_service import rabbitmq_service# Đảm bảo file này tồn tại
 
+# Khởi tạo scheduler
+scheduler = AsyncIOScheduler()
+
+async def scheduled_fetch_job():
+    """Hàm async riêng để APScheduler gọi"""
+    try:
+        if rabbitmq_service.enabled:
+            logger.info("Scheduler: Publishing news fetch task...")
+            await rabbitmq_service.publish_news_fetch_task("https://cointelegraph.com/rss")
+        else:
+            logger.info("Scheduler: RabbitMQ disabled, skipping task publish.")
+    except Exception as e:
+        logger.error(f"Scheduler failed to publish task: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events"""
-    # Startup
+    """
+    Quản lý các sự kiện startup và shutdown của ứng dụng.
+    """
+    
+    # === STARTUP (Khởi động) ===
     logger.info("🚀 Starting AI News Management System...")
+    
+    # 1. Kết nối MongoDB
     await connect_to_mongo()
     logger.info("✅ Connected to MongoDB Atlas")
-    
-    yield
-    
-    # Shutdown
-    logger.info("👋 Shutting down...")
-    await close_mongo_connection()
-    logger.info("✅ Disconnected from MongoDB")
+
+    # 2. Kết nối RabbitMQ (Dùng service của bạn)
+    await rabbitmq_service.connect() # <-- DÒNG MỚI QUAN TRỌNG
+
+    # 3. Khởi động Scheduler
+    try:
+        logger.info("Starting task scheduler...")
+        scheduler.add_job(
+            scheduled_fetch_job, # Gọi hàm async wrapper
+            'interval', 
+            minutes=30,
+        )
+        scheduler.start()
+        logger.info("✅ Task scheduler started (fetch news every 30 mins)")
+    except Exception as e:
+        logger.error(f"❌ Failed to start scheduler: {e}")
+
+    # === YIELD (Ứng dụng chạy ở đây) ===
+    try:
+        yield
+    finally:
+        # === SHUTDOWN (Tắt ứng dụng) ===
+        logger.info("👋 Shutting down...")
+        
+        # 1. Tắt Scheduler
+        try:
+            if scheduler.running:
+                scheduler.shutdown()
+                logger.info("✅ Task scheduler shut down")
+        except Exception as e:
+            logger.error(f"❌ Error shutting down scheduler: {e}")
+        
+        # 2. Ngắt kết nối RabbitMQ
+        await rabbitmq_service.close() # <-- DÒNG MỚI QUAN TRỌNG
+
+        # 3. Ngắt kết nối MongoDB
+        await close_mongo_connection()
+        logger.info("✅ Disconnected from MongoDB")
 
 
 app = FastAPI(
@@ -35,7 +86,7 @@ app = FastAPI(
     description="AI-powered News Content Management & Distribution Platform",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    lifespan=lifespan
+    lifespan=lifespan  # <-- Sử dụng hàm lifespan đã gộp ở trên
 )
 
 # CORS Middleware

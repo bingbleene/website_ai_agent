@@ -14,7 +14,7 @@ from app.models.schemas import (
 )
 from app.core.database import get_database
 from app.core.security import get_current_user
-from app.services.openai_service import openai_service
+from app.services.google_service import gemini_service
 from app.services.google_service import google_service
 from app.services.aws_service import aws_service
 
@@ -28,7 +28,7 @@ async def generate_ai_content(
 ):
     """Generate AI content"""
     try:
-        result = await openai_service.generate_text(
+        result = await gemini_service.generate_text(
             prompt=request.prompt,
             max_tokens=request.max_tokens,
             temperature=request.temperature
@@ -36,7 +36,7 @@ async def generate_ai_content(
         
         response = AIGenerateResponse(
             result=result,
-            model=openai_service.model,
+            model=gemini_service.model,
             tokens_used=len(result.split())  # Approximation
         )
         
@@ -163,7 +163,7 @@ async def moderate_content(
 ):
     """Check content for policy violations"""
     try:
-        moderation_result = await openai_service.moderate_content(content)
+        moderation_result = await gemini_service.moderate_content(content)
         
         return {
             "flagged": moderation_result['flagged'],

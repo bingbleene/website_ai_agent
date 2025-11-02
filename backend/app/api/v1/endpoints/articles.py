@@ -13,7 +13,7 @@ from app.models.schemas import (
 )
 from app.core.database import get_database
 from app.core.security import get_current_user, get_current_admin_user
-from app.services.openai_service import openai_service
+from app.services.google_service import gemini_service
 from app.services.rabbitmq_service import rabbitmq_service
 from slugify import slugify
 
@@ -205,13 +205,13 @@ async def enhance_article_with_ai(
             raise HTTPException(status_code=404, detail="Article not found")
         
         # Generate AI enhancements
-        summary = await openai_service.generate_summary(article['content'])
-        hashtags = await openai_service.generate_hashtags(article['title'], article['content'])
-        category = await openai_service.classify_category(article['title'], article['content'])
-        key_points = await openai_service.extract_key_points(article['content'])
+        summary = await gemini_service.generate_summary(article['content'])
+        hashtags = await gemini_service.generate_hashtags(article['title'], article['content'])
+        category = await gemini_service.classify_category(article['title'], article['content'])
+        key_points = await gemini_service.extract_key_points(article['content'])
         
         # Check content moderation
-        moderation = await openai_service.moderate_content(article['content'])
+        moderation = await gemini_service.moderate_content(article['content'])
         warnings = []
         if moderation['flagged']:
             warnings = list(moderation['categories'].keys())
