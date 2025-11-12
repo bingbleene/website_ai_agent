@@ -1,6 +1,37 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+env/
+venv/
+.venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Node
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Env files (secrets)
+.env
+backend/.env
+
+# Build / dist
+dist/
+build/
+
+# Docker
+**/docker-compose.override.yml
+# Python
+__pycache__/
+*.py[cod]
 *$py.class
 *.so
 .Python

@@ -36,7 +36,7 @@ async def generate_ai_content(
         
         response = AIGenerateResponse(
             result=result,
-            model=gemini_service.model,
+            model=gemini_service.model_name or "gemini-pro",
             tokens_used=len(result.split())  # Approximation
         )
         

@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # DeepL
     DEEPL_API_KEY: str = ""
     
+    # Unsplash (for image search)
+    UNSPLASH_ACCESS_KEY: str = ""
+    
     # Azure Content Safety
     AZURE_CONTENT_SAFETY_ENDPOINT: str = ""
     AZURE_CONTENT_SAFETY_KEY: str = ""

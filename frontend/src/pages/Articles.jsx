@@ -1,17 +1,73 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Clock, Eye, TrendingUp, Sparkles, Calendar, Tag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getPublishedArticles, getTrendingArticles, mockCategories } from '../services/mockData';
+import { articlesAPI } from '../services/api';
 
 export default function Articles() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [loading, setLoading] = useState(true);
+  const [allArticles, setAllArticles] = useState([]);
+  const [trendingArticles, setTrendingArticles] = useState([]);
+  const [categories, setCategories] = useState(['All']);
 
-  // Get data from mockData service
-  const allArticles = getPublishedArticles();
-  const trendingArticles = getTrendingArticles(3);
-  const categories = ['All', ...mockCategories.map(cat => cat.name)];
+  // Fetch data from backend API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch published articles
+        const articlesRes = await articlesAPI.getPublished({ limit: 50 });
+        const rawArticles = articlesRes.data || [];
+        
+        // Map MongoDB fields to frontend format
+        const mappedArticles = rawArticles.map(article => ({
+          id: article._id || article.id,
+          title: article.title,
+          excerpt: article.excerpt || article.summary,
+          content: article.content,
+          category: article.category,
+          thumbnail: article.featured_image || article.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
+          views: article.view_count || 0,
+          readTime: `${Math.ceil((article.content?.length || 0) / 1000)} min read`,
+          publishedAt: article.published_at || article.publishedAt || article.created_at,
+          author: article.author_name || 'AI News Bot'
+        }));
+        
+        setAllArticles(mappedArticles);
+        
+        // Fetch trending articles
+        const trendingRes = await articlesAPI.getTrending(3);
+        const rawTrending = trendingRes.data || [];
+        const mappedTrending = rawTrending.map(article => ({
+          id: article._id || article.id,
+          title: article.title,
+          excerpt: article.excerpt || article.summary,
+          category: article.category,
+          views: article.view_count || 0,
+          readTime: `${Math.ceil((article.content?.length || 0) / 1000)} min read`,
+        }));
+        setTrendingArticles(mappedTrending);
+        
+        // Fetch categories
+        const categoriesRes = await articlesAPI.getCategories();
+        const categoryNames = categoriesRes.data.categories?.map(cat => cat.name) || [];
+        setCategories(['All', ...categoryNames]);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ Error fetching articles:', error);
+        setLoading(false);
+        // Fallback to empty arrays on error
+        setAllArticles([]);
+        setTrendingArticles([]);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
   // Filter articles
   const filteredArticles = allArticles.filter(article => {
@@ -109,12 +165,47 @@ export default function Articles() {
               ))}
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div style={{ 
+                  display: 'inline-block',
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid #f3f4f6',
+                  borderTop: '4px solid #3b82f6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}>
+                  <style>
+                    {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
+                  </style>
+                </div>
+                <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading articles...</p>
+              </div>
+            )}
+
+            {/* No Results */}
+            {!loading && filteredArticles.length === 0 && (
+              <div style={{
+                textAlign: 'center',
+                padding: '3rem',
+                background: 'white',
+                borderRadius: '16px'
+              }}>
+                <p style={{ fontSize: '18px', color: '#6b7280' }}>
+                  No articles found. Try different filters.
+                </p>
+              </div>
+            )}
+
             {/* Articles Grid */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {!loading && filteredArticles.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {filteredArticles.map(article => (
                 <article
-                  key={article.id}
-                  onClick={() => navigate(`/article/${article.id}`)}
+                  key={article._id || article.id}
+                  onClick={() => navigate(`/article/${article._id || article.id}`)}
                   style={{
                     background: 'white',
                     borderRadius: '16px',
@@ -137,9 +228,22 @@ export default function Articles() {
                   {/* Image */}
                   <div style={{
                     height: '200px',
-                    background: `linear-gradient(135deg, #3b82f6, #8b5cf6)`,
-                    position: 'relative'
+                    position: 'relative',
+                    overflow: 'hidden'
                   }}>
+                    <img 
+                      src={article.thumbnail || 'https://via.placeholder.com/300x200?text=No+Image'} 
+                      alt={article.title}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        e.target.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
+                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzM3OTlmZiIvPjwvc3ZnPg==';
+                      }}
+                    />
                     {article.featured && (
                       <div style={{
                         position: 'absolute',
@@ -181,7 +285,7 @@ export default function Articles() {
                       </span>
                       <span style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <Calendar size={14} />
-                        {new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {article.published_at ? new Date(article.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                       </span>
                     </div>
 
@@ -210,15 +314,15 @@ export default function Articles() {
                       fontSize: '13px',
                       color: '#9ca3af'
                     }}>
-                      <span>By {article.author}</span>
+                      <span>By {article.author_name || 'Anonymous'}</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <Clock size={14} />
-                          {article.readTime}
+                          {article.read_time || '5 min'}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <Eye size={14} />
-                          {article.views.toLocaleString()}
+                          {article.view_count || 0}
                         </span>
                       </div>
                     </div>
@@ -226,6 +330,7 @@ export default function Articles() {
                 </article>
               ))}
             </div>
+            )}
           </div>
 
           {/* Sidebar */}
