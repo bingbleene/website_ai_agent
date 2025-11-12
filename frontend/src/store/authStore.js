@@ -9,12 +9,16 @@ export const useAuthStore = create(
       refreshToken: null,
       isAuthenticated: false,
 
-      setAuth: (user, accessToken, refreshToken) => set({
-        user,
-        accessToken,
-        refreshToken,
-        isAuthenticated: true
-      }),
+      setAuth: (user, accessToken, refreshToken) => {
+        console.log('setAuth called with:', { user, accessToken, refreshToken });
+        set({
+          user,
+          accessToken,
+          refreshToken,
+          isAuthenticated: true
+        });
+        console.log('State after setAuth:', { user, accessToken, refreshToken, isAuthenticated: true });
+      },
 
       logout: () => set({
         user: null,

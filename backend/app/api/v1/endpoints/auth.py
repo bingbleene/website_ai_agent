@@ -7,6 +7,7 @@ from datetime import datetime
 from app.models.schemas import UserLogin, UserCreate, TokenResponse, UserResponse
 from app.core.database import get_database
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
+from loguru import logger
 
 router = APIRouter()
 
@@ -39,31 +40,36 @@ async def register(user_data: UserCreate, db=Depends(get_database)):
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db=Depends(get_database)):
     """Login user"""
-    # Find user
+    print(f"========== LOGIN ATTEMPT: {credentials.email} ==========")
+    logger.info(f"Login attempt for email: {credentials.email}")
     user = await db.users.find_one({"email": credentials.email})
+    print(f"========== USER FOUND: {user is not None} ==========")
     if not user:
+        print(f"========== EMAIL NOT FOUND: {credentials.email} ==========")
+        logger.warning(f"Email not found: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Verify password
+
     if not verify_password(credentials.password, user['password']):
+        logger.warning(f"Password mismatch for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Check if active
+
+    logger.info(f"Login success for email: {credentials.email}")
+
     if not user.get('is_active', True):
+        logger.warning(f"Account inactive for email: {credentials.email}")
         raise HTTPException(status_code=403, detail="Account is inactive")
-    
-    # Generate tokens
+
     token_data = {
         "sub": str(user['_id']),
         "email": user['email'],
         "role": user['role']
     }
-    
+
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    
+
     user['_id'] = str(user['_id'])
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,

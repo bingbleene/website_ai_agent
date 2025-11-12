@@ -403,3 +403,274 @@ async def find_similar_articles(
             "similar_articles": [ArticleResponse(**art) for art in similar],
             "note": "Using fallback category matching"
         }
+
+
+# ==================== PUBLIC ENDPOINTS (NO AUTH REQUIRED) ====================
+
+@router.get("/public/articles", response_model=List[ArticleResponse])
+async def get_public_articles(
+    category: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db = Depends(get_database)
+):
+    """
+    Get published articles (PUBLIC - no authentication required)
+    Used by frontend to display articles
+    """
+    try:
+        # Build query - only published articles
+        query = {"status": "published"}
+        if category and category != "All":
+            query['category'] = category
+        
+        # Get articles sorted by _id (newest first - MongoDB ObjectId contains timestamp)
+        cursor = db.articles.find(query).sort('_id', -1).skip(skip).limit(limit)
+        articles = await cursor.to_list(length=limit)
+        
+        # Map MongoDB fields to API schema
+        mapped_articles = []
+        for article in articles:
+            # Map category to valid enum (fallback to technology)
+            category_map = {
+                "AI Models": "technology",
+                "Tech Innovations": "technology",
+                "Blockchain": "technology",
+                "Software": "technology",
+                "Healthcare": "health",
+                "Finance": "business",
+                "Economy": "business",
+                "Politics": "politics",
+                "Sports": "sports",
+                "Entertainment": "entertainment",
+                "Science": "science",
+                "World News": "world",
+                "Local News": "local"
+            }
+            mongo_category = article.get('category', 'Technology')
+            api_category = category_map.get(mongo_category, 'technology')
+            
+            mapped = {
+                "_id": str(article['_id']),
+                "title": article.get('title', ''),
+                "slug": article.get('slug', ''),
+                "excerpt": article.get('excerpt', ''),
+                "content": article.get('content', ''),
+                "summary": article.get('excerpt', ''),
+                "category": api_category,
+                "tags": article.get('tags', []),
+                "featured_image": article.get('thumbnail', ''),
+                "language": article.get('language', 'vi'),
+                "status": article.get('status', 'draft'),
+                "author_id": str(article.get('authorId', article.get('author_id', 1))),
+                "author_name": article.get('author', article.get('author_name', 'Unknown')),
+                "view_count": article.get('views', article.get('view_count', 0)),
+                "like_count": article.get('likes', article.get('like_count', 0)),
+                "comment_count": article.get('commentsCount', article.get('comment_count', 0)),
+                "published_at": article.get('publishedAt', article.get('published_at')),
+                "created_at": article.get('createdAt', article.get('created_at')),
+                "updated_at": article.get('updatedAt', article.get('updated_at'))
+            }
+            mapped_articles.append(mapped)
+        
+        logger.info(f"✅ Public articles: Found {len(mapped_articles)} published articles")
+        return [ArticleResponse(**art) for art in mapped_articles]
+        
+    except Exception as e:
+        logger.error(f"❌ Get public articles error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/public/trending", response_model=List[ArticleResponse])
+async def get_trending_articles(
+    limit: int = Query(5, ge=1, le=20),
+    db = Depends(get_database)
+):
+    """
+    Get trending articles (PUBLIC - sorted by views and engagement)
+    """
+    try:
+        # Get top articles by view_count + like_count
+        cursor = db.articles.find({"status": "published"}).sort([
+            ('view_count', -1),
+            ('like_count', -1)
+        ]).limit(limit)
+        
+        articles = await cursor.to_list(length=limit)
+        
+        # Map MongoDB fields to API schema
+        mapped_articles = []
+        for article in articles:
+            # Map category to valid enum
+            category_map = {
+                "AI Models": "technology",
+                "Tech Innovations": "technology",
+                "Blockchain": "technology",
+                "Software": "technology",
+                "Healthcare": "health",
+                "Finance": "business",
+                "Economy": "business",
+                "Politics": "politics",
+                "Sports": "sports",
+                "Entertainment": "entertainment",
+                "Science": "science",
+                "World News": "world",
+                "Local News": "local"
+            }
+            mongo_category = article.get('category', 'Technology')
+            api_category = category_map.get(mongo_category, 'technology')
+            
+            mapped = {
+                "_id": str(article['_id']),
+                "title": article.get('title', ''),
+                "slug": article.get('slug', ''),
+                "excerpt": article.get('excerpt', ''),
+                "content": article.get('content', ''),
+                "summary": article.get('excerpt', ''),
+                "category": api_category,
+                "tags": article.get('tags', []),
+                "featured_image": article.get('thumbnail', ''),
+                "language": article.get('language', 'vi'),
+                "status": article.get('status', 'draft'),
+                "author_id": str(article.get('authorId', article.get('author_id', 1))),
+                "author_name": article.get('author', article.get('author_name', 'Unknown')),
+                "view_count": article.get('views', article.get('view_count', 0)),
+                "like_count": article.get('likes', article.get('like_count', 0)),
+                "comment_count": article.get('commentsCount', article.get('comment_count', 0)),
+                "published_at": article.get('publishedAt', article.get('published_at')),
+                "created_at": article.get('createdAt', article.get('created_at')),
+                "updated_at": article.get('updatedAt', article.get('updated_at'))
+            }
+            mapped_articles.append(mapped)
+        
+        logger.info(f"✅ Trending articles: Found {len(mapped_articles)} articles")
+        return [ArticleResponse(**art) for art in mapped_articles]
+        
+    except Exception as e:
+        logger.error(f"❌ Get trending articles error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/public/categories")
+async def get_public_categories(db = Depends(get_database)):
+    """
+    Get all available categories with article count (PUBLIC)
+    """
+    try:
+        # Aggregate articles by category
+        pipeline = [
+            {"$match": {"status": "published"}},
+            {"$group": {
+                "_id": "$category",
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"count": -1}}
+        ]
+        
+        result = await db.articles.aggregate(pipeline).to_list(length=None)
+        
+        categories = [
+            {"name": cat["_id"], "count": cat["count"]}
+            for cat in result
+        ]
+        
+        logger.info(f"✅ Public categories: Found {len(categories)} categories")
+        return {"categories": categories}
+        
+    except Exception as e:
+        logger.error(f"❌ Get public categories error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/public/articles/{article_id}", response_model=ArticleResponse)
+async def get_public_article_by_id(article_id: str, db = Depends(get_database)):
+    try:
+        # Try all possible _id types: int, string, ObjectId
+        article = None
+        # Try int
+        try:
+            query_id = int(article_id)
+            article = await db.articles.find_one({"_id": query_id, "status": "published"})
+        except Exception:
+            pass
+        # Try string
+        if not article:
+            article = await db.articles.find_one({"_id": article_id, "status": "published"})
+        # Try ObjectId
+        if not article:
+            try:
+                article = await db.articles.find_one({"_id": ObjectId(article_id), "status": "published"})
+            except Exception:
+                pass
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        # Increment view count
+        await db.articles.update_one(
+            {"_id": article['_id']},
+            {"$inc": {"view_count": 1}}
+        )
+        article['view_count'] = article.get('view_count', 0) + 1
+
+        # Map category
+        category_map = {
+            "AI Models": "technology",
+            "Tech Innovations": "technology",
+            "Blockchain": "technology",
+            "Software": "technology",
+            "Healthcare": "health",
+            "Finance": "business",
+            "Economy": "business",
+            "Politics": "politics",
+            "Sports": "sports",
+            "Entertainment": "entertainment",
+            "Science": "science",
+            "World News": "world",
+            "Local News": "local"
+        }
+        mongo_category = article.get('category', 'Technology')
+        api_category = category_map.get(mongo_category, 'technology')
+
+        # Parse datetime fields
+        from datetime import datetime
+        def parse_dt(val):
+            if isinstance(val, datetime):
+                return val
+            if isinstance(val, str):
+                try:
+                    # Handle ISO8601 with Z (UTC)
+                    if val.endswith('Z'):
+                        val = val.replace('Z', '+00:00')
+                    return datetime.fromisoformat(val)
+                except Exception:
+                    return None
+            return None
+
+        mapped = {
+            "_id": str(article['_id']),
+            "title": article.get('title', ''),
+            "slug": article.get('slug', ''),
+            "excerpt": article.get('excerpt', ''),
+            "content": article.get('content', ''),
+            "summary": article.get('excerpt', ''),
+            "category": api_category,
+            "tags": article.get('tags', []),
+            "featured_image": article.get('thumbnail', ''),
+            "language": article.get('language', 'vi'),
+            "status": article.get('status', 'draft'),
+            "author_id": str(article.get('authorId', article.get('author_id', 1))),
+            "author_name": article.get('author', article.get('author_name', 'Unknown')),
+            "view_count": article.get('view_count', 0),
+            "like_count": article.get('like_count', 0),
+            "comment_count": article.get('comment_count', 0),
+            "published_at": parse_dt(article.get('published_at') or article.get('publishedAt')), 
+            "created_at": parse_dt(article.get('created_at') or article.get('createdAt')), 
+            "updated_at": parse_dt(article.get('updated_at') or article.get('updatedAt'))
+        }
+        logger.info(f"✅ Public article: {article_id} - {mapped['title'][:50]} - Views: {mapped['view_count']}")
+        return ArticleResponse(**mapped)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Get public article by ID error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

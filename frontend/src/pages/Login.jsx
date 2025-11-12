@@ -15,40 +15,44 @@ export default function Login() {
   const setAuth = useAuthStore((state) => state.setAuth);
   
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    
-    // Simulate loading
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    try {
-      // Mock login - không cần xác thực thật
-      const mockUser = {
-        id: role === 'admin' ? 1 : 2,
-        email: email || 'user@example.com',
-        name: role === 'admin' ? 'Admin User' : 'Regular User',
-        role: role,
-        avatar: `https://ui-avatars.com/api/?name=${role === 'admin' ? 'Admin' : 'User'}&background=${role === 'admin' ? '3b82f6' : '8b5cf6'}&color=fff`
-      };
-      
-      const mockToken = 'mock_token_' + Date.now();
-      
-      // Save to auth store
-      setAuth(mockUser, mockToken, mockToken);
-      
-      // Navigate based on role
-      if (role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/');
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.');
-    } finally {
-      setLoading(false);
+  e.preventDefault();
+  setError('');
+  setLoading(true);
+
+  try {
+    console.log('Sending login request...');
+    // Gửi request lên backend
+    const response = await authAPI.login({
+      email,
+      password
+    });
+
+    console.log('Login response:', response);
+    console.log('Response data:', response.data);
+
+    // Nếu đăng nhập thành công, lấy user và token từ response
+    const { user, access_token, refresh_token } = response.data;
+
+    console.log('Extracted data:', { user, access_token, refresh_token });
+
+    // Lưu vào store
+    setAuth(user, access_token, refresh_token);
+
+    console.log('After setAuth, navigating...');
+
+    // Chuyển trang theo role
+    if (user.role === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/');
     }
-  };
+  } catch (err) {
+    console.error('Login error:', err);
+    setError('Login failed. Please check your credentials.');
+  } finally {
+    setLoading(false);
+  }
+};
   
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>

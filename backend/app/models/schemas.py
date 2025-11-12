@@ -64,11 +64,18 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: str = Field(alias="_id")
-    is_active: bool = True
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+    username: str
+    email: EmailStr
+    name: Optional[str] = None
+    role: str
+    avatar: Optional[str] = None
+    status: Optional[str] = None
+    articlesCount: Optional[int] = 0
+    commentsCount: Optional[int] = 0
+    joinedAt: Optional[str] = None
+    lastActive: Optional[str] = None
     
     class Config:
         populate_by_name = True

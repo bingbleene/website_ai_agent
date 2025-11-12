@@ -220,13 +220,16 @@ class GeminiService:
                 self.last_error_time = datetime.now()
             raise e
 
-    async def generate_text(self, prompt: str, max_tokens: int = 1000) -> str:
+    async def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """Tạo văn bản từ một prompt đơn giản."""
         if not self.model:
             raise Exception("Gemini API key not configured.")
         try:
             def _generate_sync():
-                config = genai.types.GenerationConfig(max_output_tokens=max_tokens)
+                config = genai.types.GenerationConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=temperature
+                )
                 response = self.model.generate_content(prompt, generation_config=config)
                 return response.text
             return await self._run_in_thread(_generate_sync)

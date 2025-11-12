@@ -52,6 +52,12 @@ export const articlesAPI = {
   enhanceWithAI: (articleId) => api.post(`/ai/enhance-article/${articleId}`),
   translate: (articleId, targetLang) => api.post(`/ai/translate`, { article_id: articleId, target_language: targetLang }),
   schedulePublish: (data) => api.post('/ai/schedule-publish', data),
+  
+  // PUBLIC endpoints (no auth required)
+  getPublished: (params) => api.get('/articles/public/articles', { params }),
+  getPublishedById: (id) => api.get(`/articles/public/articles/${id}`),
+  getTrending: (limit = 5) => api.get('/articles/public/trending', { params: { limit } }),
+  getCategories: () => api.get('/articles/public/categories'),
 }
 
 // ===================== Comments API =====================
@@ -73,6 +79,8 @@ export const analyticsAPI = {
 export const aiAPI = {
   chat: (data) => api.post('/chatbot/chat', data),
   getRecommendations: (userId, limit) => api.get(`/ai/recommendations`, { params: { user_id: userId, limit } }),
+  generateContent: (prompt, maxTokens = 1000, temperature = 0.7) => 
+    api.post('/ai/generate', { prompt, max_tokens: maxTokens, temperature }),
 }
 
 // ===================== Users API =====================

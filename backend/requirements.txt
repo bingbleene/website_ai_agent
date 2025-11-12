@@ -13,7 +13,7 @@ motor==3.3.2  # Async MongoDB driver
 openai==1.14.0  # Updated for better Python 3.13 support
 google-cloud-translate==3.15.0
 google-cloud-language==2.13.0
-google-generativeai>=0.10.0
+google-generativeai==0.8.3  # Fixed version compatible with Python 3.13
 # anthropic==0.18.0  # Commented out - not used in current implementation
 
 # AWS Services
@@ -27,6 +27,7 @@ aio-pika==9.3.1  # Async RabbitMQ
 # Note: Using pre-built cryptography version to avoid Rust compilation
 cryptography==41.0.7  # Pre-built wheels available
 python-jose==3.3.0  # Without [cryptography] extra to avoid version conflicts
+bcrypt==4.1.2  # Updated bcrypt version for compatibility
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 
@@ -39,13 +40,16 @@ apscheduler==3.10.4
 
 # Utilities
 # Using Pydantic v2 with pre-built wheels
-pydantic==2.7.0  # Has pre-built wheels for Python 3.13
-pydantic-settings==2.2.0
+pydantic>=2.10.0  # Latest version with Python 3.13 wheels
+pydantic-settings>=2.7.0
 email-validator==2.1.0
 python-slugify==8.0.1
 
 # Monitoring & Logging
 loguru==0.7.2
+
+# Trends & Data Scraping
+pytrends==4.9.2
 
 # Testing
 pytest==8.0.0

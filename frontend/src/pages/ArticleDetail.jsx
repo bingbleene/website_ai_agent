@@ -1,13 +1,84 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, Eye, Calendar, Share2, Bookmark, TrendingUp, User, ThumbsUp, MessageCircle, Send } from 'lucide-react';
-import { getArticleById, getPublishedArticles } from '../services/mockData';
+import { articlesAPI } from '../services/api';
 import Chatbot from '../components/public/Chatbot';
 
 export default function ArticleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const article = getArticleById(id);
+  const [article, setArticle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [relatedArticles, setRelatedArticles] = useState([]);
+  
+  // Fetch article from backend
+  useEffect(() => {
+    const fetchArticle = async () => {
+      try {
+        setLoading(true);
+        console.log('🔍 Fetching article with ID:', id);
+        
+        // Fetch specific article by ID using dedicated endpoint
+        const response = await articlesAPI.getPublishedById(id);
+        console.log('✅ API Response:', response);
+        const foundArticle = response.data;
+        
+        if (!foundArticle) {
+          console.error('❌ No article data in response');
+          setLoading(false);
+          return;
+        }
+        
+        console.log('📄 Found article:', foundArticle);
+        
+        // Map fields
+        const mapped = {
+          id: foundArticle._id || foundArticle.id,
+          title: foundArticle.title,
+          excerpt: foundArticle.excerpt || foundArticle.summary,
+          content: foundArticle.content,
+          category: foundArticle.category,
+          categoryId: foundArticle.category_id || 1,
+          thumbnail: foundArticle.featured_image || foundArticle.thumbnail,
+          views: foundArticle.view_count || 0,
+          likes: foundArticle.like_count || 0,
+          commentsCount: foundArticle.comment_count || 0,
+          readTime: `${Math.ceil((foundArticle.content?.length || 0) / 1000)} min read`,
+          publishedAt: foundArticle.published_at || foundArticle.publishedAt,
+          author: foundArticle.author_name || 'Anonymous',
+          authorAvatar: 'https://ui-avatars.com/api/?name=' + (foundArticle.author_name || 'Anonymous').replace(' ', '+')
+        };
+        setArticle(mapped);
+        console.log('✅ Article mapped:', mapped);
+        
+        // Fetch related articles (same category)
+        const relatedRes = await articlesAPI.getPublished({ limit: 10 });
+        const allArticles = relatedRes.data || [];
+        const related = allArticles
+          .filter(a => a.category === foundArticle.category && a._id !== id)
+          .slice(0, 2)
+          .map(a => ({
+            id: a._id,
+            title: a.title,
+            thumbnail: a.featured_image || a.thumbnail,
+            category: a.category,
+            views: a.view_count || 0,
+            readTime: `${Math.ceil((a.content?.length || 0) / 1000)} min read`,
+            excerpt: a.excerpt || a.summary || ''
+          }));
+        setRelatedArticles(related);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ Error fetching article:', error);
+        console.error('❌ Error details:', error.response?.data || error.message);
+        setLoading(false);
+        setArticle(null); // Explicitly set to null on error
+      }
+    };
+    
+    fetchArticle();
+  }, [id]);
   
   // Comments state
   const [comments, setComments] = useState([
@@ -37,11 +108,6 @@ export default function ArticleDetail() {
     }
   ]);
   const [newComment, setNewComment] = useState('');
-  
-  // Get related articles (same category, exclude current)
-  const relatedArticles = getPublishedArticles()
-    .filter(a => a.categoryId === article?.categoryId && a.id !== article?.id)
-    .slice(0, 2);
 
   const handleAddComment = () => {
     if (newComment.trim()) {
@@ -57,6 +123,32 @@ export default function ArticleDetail() {
       setNewComment('');
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f9fafb'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '4px solid #e5e7eb',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 1rem'
+          }}></div>
+          <p style={{ color: '#6b7280' }}>Loading article...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!article) {
     return (
@@ -87,6 +179,11 @@ export default function ArticleDetail() {
       </div>
     );
   }
+
+  console.log('relatedArticles:', relatedArticles);
+  relatedArticles.forEach((related, index) => {
+    console.log(`related[${index}].excerpt:`, related?.excerpt);
+  });
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
@@ -280,13 +377,18 @@ export default function ArticleDetail() {
         </div>
 
         {/* Featured Image */}
-        <div style={{
-          width: '100%',
-          height: '400px',
-          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-          borderRadius: '16px',
-          marginBottom: '3rem'
-        }} />
+        <img
+          src={article.thumbnail}
+          alt="Featured"
+          style={{
+            width: '100%',
+            height: '400px',
+            objectFit: 'cover',
+            borderRadius: '16px',
+            marginBottom: '3rem'
+          }}
+          onError={e => { e.target.src = 'https://via.placeholder.com/800x400?text=No+Image'; }}
+        />
 
         {/* Article Body */}
         <div
@@ -315,60 +417,72 @@ export default function ArticleDetail() {
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '1.5rem'
           }}>
-            {relatedArticles.map((related) => (
-              <div
-                key={related.id}
-                onClick={() => navigate(`/article/${related.id}`)}
-                style={{
-                  background: 'white',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                }}
-              >
-                <div style={{
-                  height: '150px',
-                  background: `linear-gradient(135deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})`
-                }} />
-                <div style={{ padding: '1.5rem' }}>
-                  <span style={{
-                    padding: '0.25rem 0.75rem',
-                    background: '#eff6ff',
-                    color: '#3b82f6',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: 600
-                  }}>
-                    {related.category}
-                  </span>
-                  <h3 style={{
-                    fontSize: '18px',
-                    fontWeight: 700,
-                    marginTop: '0.75rem',
-                    marginBottom: '0.5rem',
-                    color: '#111827'
-                  }}>
-                    {related.title}
-                  </h3>
-                  <p style={{
-                    fontSize: '14px',
-                    color: '#6b7280'
-                  }}>
-                    {related.excerpt.substring(0, 100)}...
-                  </p>
-                </div>
-              </div>
-            ))}
+            {relatedArticles
+              .filter((related) => {
+                const isValid = related && typeof related.excerpt === 'string';
+                if (!isValid) {
+                  console.warn('⚠️ Invalid related article:', related);
+                }
+                return isValid;
+              })
+              .map((related) => {
+                const rel = related || {};
+                const excerptText = rel.excerpt.substring(0, 100);
+                return (
+                  <div
+                    key={rel.id}
+                    onClick={() => navigate(`/article/${rel.id}`)}
+                    style={{
+                      background: 'white',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    }}
+                  >
+                    <div style={{
+                      height: '150px',
+                      background: `linear-gradient(135deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})`
+                    }} />
+                    <div style={{ padding: '1.5rem' }}>
+                      <span style={{
+                        padding: '0.25rem 0.75rem',
+                        background: '#eff6ff',
+                        color: '#3b82f6',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600
+                      }}>
+                        {rel.category}
+                      </span>
+                      <h3 style={{
+                        fontSize: '18px',
+                        fontWeight: 700,
+                        margin: '1rem 0',
+                        color: '#111827'
+                      }}>
+                        {rel.title}
+                      </h3>
+                      <p style={{
+                        fontSize: '14px',
+                        color: '#6b7280',
+                        lineHeight: 1.5
+                      }}>
+                        {excerptText}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
 
