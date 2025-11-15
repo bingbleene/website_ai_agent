@@ -9,37 +9,352 @@ export default function ArticleDetail() {
   const navigate = useNavigate();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [originalArticle, setOriginalArticle] = useState(null);
   const [relatedArticles, setRelatedArticles] = useState([]);
+  const [translateLoading, setTranslateLoading] = useState(false);
+  const [currentLang, setCurrentLang] = useState('vi');
+  const [translationsCache, setTranslationsCache] = useState({});
+
+  // Prepare article HTML: move outside useEffect so we can reuse for translations
+  const prepareArticleHtml = (rawHtml) => {
+    try {
+      if (!rawHtml) return '';
+      // Convert lightweight markdown headings (#, ##, ###) to HTML headings
+      let normalized = rawHtml;
+      normalized = normalized.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+      normalized = normalized.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+      normalized = normalized.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(normalized, 'text/html');
+
+      // If the content looks like plain text (contains newline blocks) convert to structured HTML
+      const bodyText = doc.body.textContent || '';
+      if (!/<[a-z][\s\S]*>/i.test(normalized) && /\n/.test(bodyText)) {
+        const blocks = normalized.split(/\n{2,}/g).map(b => b.trim()).filter(Boolean);
+        const container2 = document.createElement('div');
+        // helper to replace bold markers
+        const replaceBoldInTextNodes = (parent) => {
+          const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT, null, false);
+          const textNodes = [];
+          let node;
+          while (node = walker.nextNode()) {
+            textNodes.push(node);
+          }
+          const boldRegex = /\*\*(.+?)\*\*/g;
+          textNodes.forEach(tn => {
+            const txt = tn.nodeValue;
+            if (!txt) return;
+            if (!boldRegex.test(txt)) return;
+            let lastIndex = 0;
+            const frag = document.createDocumentFragment();
+            boldRegex.lastIndex = 0;
+            let m;
+            while ((m = boldRegex.exec(txt)) !== null) {
+              const before = txt.slice(lastIndex, m.index);
+              if (before) frag.appendChild(document.createTextNode(before));
+              const strong = document.createElement('strong');
+              strong.textContent = m[1];
+              frag.appendChild(strong);
+              lastIndex = m.index + m[0].length;
+            }
+            const rest = txt.slice(lastIndex);
+            if (rest) frag.appendChild(document.createTextNode(rest));
+            tn.parentNode.replaceChild(frag, tn);
+          });
+        };
+
+        blocks.forEach(block => {
+          const numMatch = block.match(/^\s*(\d+)\.\s*(\s*[\s\S]*)$/s);
+          if (numMatch) {
+            const marker = document.createElement('div');
+            marker.className = 'section-marker';
+            marker.textContent = numMatch[1] + '.';
+            const p = document.createElement('p');
+            const inner = numMatch[2].trim().replace(/\n/g, '<br/>');
+            p.innerHTML = inner;
+            const section = document.createElement('section');
+            section.className = 'article-section';
+            section.appendChild(marker);
+            section.appendChild(p);
+            container2.appendChild(section);
+            return;
+          }
+
+          const lines = block.split(/\n+/).map(l => l.trim()).filter(Boolean);
+          const isList = lines.every(l => /^[-*]\s+/.test(l));
+          if (isList) {
+            const ul = document.createElement('ul');
+            lines.forEach(l => {
+              const li = document.createElement('li');
+              li.innerHTML = l.replace(/^[-*]\s+/, '');
+              ul.appendChild(li);
+            });
+            const section = document.createElement('section');
+            section.className = 'article-section';
+            section.appendChild(ul);
+            container2.appendChild(section);
+            return;
+          }
+
+          const p = document.createElement('p');
+          p.innerHTML = block.replace(/\n/g, '<br/>');
+          const section = document.createElement('section');
+          section.className = 'article-section';
+          section.appendChild(p);
+          container2.appendChild(section);
+        });
+        replaceBoldInTextNodes(container2);
+        return container2.innerHTML;
+      }
+
+      // Recursively replace **bold** markers inside text nodes
+      const replaceBoldInTextNodes = (parent) => {
+        const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT, null, false);
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+          textNodes.push(node);
+        }
+        const boldRegex = /\*\*(.+?)\*\*/g;
+        textNodes.forEach(tn => {
+          const txt = tn.nodeValue;
+          if (!txt) return;
+          if (!boldRegex.test(txt)) return;
+          let lastIndex = 0;
+          const frag = document.createDocumentFragment();
+          boldRegex.lastIndex = 0;
+          let m;
+          while ((m = boldRegex.exec(txt)) !== null) {
+            const before = txt.slice(lastIndex, m.index);
+            if (before) frag.appendChild(document.createTextNode(before));
+            const strong = document.createElement('strong');
+            strong.textContent = m[1];
+            frag.appendChild(strong);
+            lastIndex = m.index + m[0].length;
+          }
+          const rest = txt.slice(lastIndex);
+          if (rest) frag.appendChild(document.createTextNode(rest));
+          tn.parentNode.replaceChild(frag, tn);
+        });
+      };
+
+      // Wrap each top-level block into a section.article-section and support markers
+      const container = document.createElement('div');
+      const children = Array.from(doc.body.childNodes);
+
+      const extractMarker = (text) => {
+        if (!text) return null;
+        const c = text.match(/^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i);
+        if (c) return { name: c[1], rest: text.replace(/^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i, '') };
+        const t = text.match(/^:::\s*([a-zA-Z0-9_-]+)\s*/);
+        if (t) return { name: t[1], rest: text.replace(/^:::\s*([a-zA-Z0-9_-]+)\s*/, '') };
+        const b = text.match(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/);
+        if (b) return { name: b[1], rest: text.replace(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/, '') };
+        return null;
+      };
+
+      children.forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE && !/\S/.test(child.nodeValue || '')) return;
+        let markerName = null;
+        if (child.nodeType === Node.TEXT_NODE) {
+          const em = extractMarker(child.nodeValue);
+          if (em) {
+            markerName = em.name;
+            child = document.createTextNode(em.rest);
+          }
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const html = child.innerHTML || '';
+          const text = child.textContent || '';
+          const emHtml = extractMarker(html);
+          const emText = extractMarker(text);
+          if (emHtml) {
+            markerName = emHtml.name;
+            const clone = child.cloneNode(true);
+            clone.innerHTML = clone.innerHTML.replace(/^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i, '');
+            child = clone;
+          } else if (emText) {
+            markerName = emText.name;
+            const clone = child.cloneNode(true);
+            clone.innerHTML = clone.innerHTML.replace(/^:::\s*([a-zA-Z0-9_-]+)\s*/,'').replace(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/, '');
+            child = clone;
+          }
+        }
+
+        const section = document.createElement('section');
+        section.className = 'article-section';
+        if (markerName) section.classList.add(markerName);
+
+        if (child.nodeType === Node.TEXT_NODE) {
+          const p = document.createElement('p');
+          p.textContent = child.nodeValue;
+          section.appendChild(p);
+        } else {
+          section.appendChild(child.cloneNode(true));
+        }
+
+        try {
+          const firstEl = section.firstElementChild || section.firstChild;
+          if (firstEl) {
+            const text = firstEl.textContent || '';
+            const m = text.match(/^\s*(\d+)\.\s*(.*)$/s);
+            if (m) {
+              const num = m[1];
+              const marker = document.createElement('div');
+              marker.className = 'section-marker';
+              marker.textContent = num + '.';
+              if (firstEl.nodeType === Node.TEXT_NODE) {
+                const restHtml = m[2] || '';
+                const p = document.createElement('p');
+                p.innerHTML = restHtml;
+                section.replaceChild(p, firstEl);
+                section.insertBefore(marker, p);
+              } else if (firstEl.nodeType === Node.ELEMENT_NODE) {
+                const cloned = firstEl.cloneNode(true);
+                cloned.innerHTML = cloned.innerHTML.replace(/^\s*\d+\.\s*/,'');
+                section.replaceChild(cloned, firstEl);
+                section.insertBefore(marker, cloned);
+              }
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+
+        replaceBoldInTextNodes(section);
+        container.appendChild(section);
+      });
+      return container.innerHTML;
+    } catch (e) {
+      return (rawHtml || '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+  };
+
+  // Try to extract a title from translated content (e.g., first <h1> or first line starting with #)
+  const extractFirstHeading = (content) => {
+    if (!content) return null;
+    try {
+      // If content seems like HTML, parse and look for h1/h2
+      if (/</.test(content)) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        const h1 = doc.querySelector('h1');
+        if (h1 && h1.textContent.trim()) return h1.textContent.trim();
+        const h2 = doc.querySelector('h2');
+        if (h2 && h2.textContent.trim()) return h2.textContent.trim();
+        // fallback: first paragraph text
+        const p = doc.querySelector('p');
+        if (p && p.textContent.trim()) return p.textContent.trim().slice(0, 200);
+      }
+
+      // If plain text, look for a leading '# ' heading or first non-empty line
+      const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return null;
+      const first = lines[0];
+      const md = first.replace(/^#+\s*/, '');
+      return md || first;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Generic language change handler: fetch translation (or use cache) and update article.title/content/excerpt
+  const handleLanguageChange = async (lang) => {
+    if (!article && !originalArticle) return;
+    if (lang === 'vi') {
+      setCurrentLang('vi');
+      if (originalArticle) {
+        setArticle(originalArticle);
+      } else {
+        // fallback: refetch the article from server
+        try {
+          setLoading(true);
+          const res = await articlesAPI.getPublishedById(id);
+          const found = res.data;
+          const mapped = {
+            id: found._id,
+            title: found.title,
+            excerpt: found.excerpt || found.summary || '',
+            content: prepareArticleHtml(found.content || ''),
+            category: found.category,
+            categoryId: 1,
+            thumbnail: found.featured_image || found.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
+            views: found.view_count || 0,
+            likes: found.like_count || 0,
+            commentsCount: found.comment_count || 0,
+            readTime: `${Math.ceil((found.content?.length || 0) / 1000)} min read`,
+            publishedAt: found.published_at || found.publishedAt,
+            author: found.author_name || 'Anonymous',
+            authorAvatar: 'https://ui-avatars.com/api/?name=' + (found.author_name || 'Anonymous').replace(' ', '+')
+          };
+          setArticle(mapped);
+          setOriginalArticle(mapped);
+        } catch (e) {
+          console.error('Failed to refetch original article', e);
+        } finally {
+          setLoading(false);
+        }
+      }
+      return;
+    }
+
+    // If cached translated version exists, use it
+    if (translationsCache[lang]) {
+      setArticle(translationsCache[lang]);
+      setCurrentLang(lang);
+      return;
+    }
+
+    // Otherwise, request translation from backend
+    try {
+      setTranslateLoading(true);
+      const res = await articlesAPI.translatePublic(id, lang);
+      const tr = res.data || {};
+      const translatedContent = tr.translated_content || tr.translatedContent || tr.content || tr.translated_text || '';
+      let translatedTitle = tr.translated_title || tr.translatedTitle || tr.title || '';
+      if (!translatedTitle) {
+        const h = extractFirstHeading(translatedContent);
+        if (h) translatedTitle = h;
+      }
+      if (!translatedTitle) translatedTitle = originalArticle?.title || article?.title || '';
+      const translatedExcerpt = tr.translated_summary || tr.translatedSummary || tr.excerpt || originalArticle?.excerpt || article?.excerpt || '';
+
+      const mapped = {
+        ... (originalArticle || article || {}),
+        title: translatedTitle,
+        excerpt: translatedExcerpt,
+        content: prepareArticleHtml(translatedContent)
+      };
+
+      setArticle(mapped);
+      setTranslationsCache(prev => ({ ...prev, [lang]: mapped }));
+      setCurrentLang(lang);
+    } catch (e) {
+      console.error('Translation fetch failed', e);
+      alert('Failed to load translation.');
+    } finally {
+      setTranslateLoading(false);
+    }
+  };
   
   // Fetch article from backend
   useEffect(() => {
     const fetchArticle = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Fetching article with ID:', id);
-        
-        // Fetch specific article by ID using dedicated endpoint
-        const response = await articlesAPI.getPublishedById(id);
-        console.log('✅ API Response:', response);
-        const foundArticle = response.data;
-        
-        if (!foundArticle) {
-          console.error('❌ No article data in response');
-          setLoading(false);
-          return;
-        }
-        
-        console.log('📄 Found article:', foundArticle);
-        
-        // Map fields
+        // Get public article by id (no auth)
+        const res = await articlesAPI.getPublishedById(id);
+        const foundArticle = res.data;
+
+        // Map fields returned by public endpoint
         const mapped = {
-          id: foundArticle._id || foundArticle.id,
+          id: foundArticle._id,
           title: foundArticle.title,
-          excerpt: foundArticle.excerpt || foundArticle.summary,
-          content: foundArticle.content,
+          excerpt: foundArticle.excerpt || foundArticle.summary || '',
+          content: prepareArticleHtml(foundArticle.content || ''),
           category: foundArticle.category,
-          categoryId: foundArticle.category_id || 1,
-          thumbnail: foundArticle.featured_image || foundArticle.thumbnail,
+          categoryId: 1,
+          thumbnail: foundArticle.featured_image || foundArticle.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
           views: foundArticle.view_count || 0,
           likes: foundArticle.like_count || 0,
           commentsCount: foundArticle.comment_count || 0,
@@ -48,35 +363,39 @@ export default function ArticleDetail() {
           author: foundArticle.author_name || 'Anonymous',
           authorAvatar: 'https://ui-avatars.com/api/?name=' + (foundArticle.author_name || 'Anonymous').replace(' ', '+')
         };
+
         setArticle(mapped);
-        console.log('✅ Article mapped:', mapped);
-        
+        setOriginalArticle(mapped);
+
         // Fetch related articles (same category)
-        const relatedRes = await articlesAPI.getPublished({ limit: 10 });
-        const allArticles = relatedRes.data || [];
-        const related = allArticles
-          .filter(a => a.category === foundArticle.category && a._id !== id)
-          .slice(0, 2)
-          .map(a => ({
-            id: a._id,
-            title: a.title,
-            thumbnail: a.featured_image || a.thumbnail,
-            category: a.category,
-            views: a.view_count || 0,
-            readTime: `${Math.ceil((a.content?.length || 0) / 1000)} min read`,
-            excerpt: a.excerpt || a.summary || ''
-          }));
-        setRelatedArticles(related);
-        
+        try {
+          const relatedRes = await articlesAPI.getPublished({ limit: 10 });
+          const allArticles = relatedRes.data || [];
+          const related = allArticles
+            .filter(a => a.category === foundArticle.category && a._id !== id)
+            .slice(0, 2)
+            .map(a => ({
+              id: a._id,
+              title: a.title,
+              thumbnail: a.featured_image || a.thumbnail,
+              category: a.category,
+              views: a.view_count || 0,
+              readTime: `${Math.ceil((a.content?.length || 0) / 1000)} min read`,
+              excerpt: a.excerpt || a.summary || ''
+            }));
+          setRelatedArticles(related);
+        } catch (e) {
+          console.warn('⚠️ Could not fetch related articles', e);
+        }
+
         setLoading(false);
       } catch (error) {
         console.error('❌ Error fetching article:', error);
-        console.error('❌ Error details:', error.response?.data || error.message);
         setLoading(false);
-        setArticle(null); // Explicitly set to null on error
+        setArticle(null);
       }
     };
-    
+
     fetchArticle();
   }, [id]);
   
@@ -281,6 +600,35 @@ export default function ArticleDetail() {
           {article.title}
         </h1>
 
+        {/* Language selector */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <button
+            onClick={() => handleLanguageChange('vi')}
+            style={{
+              padding: '0.5rem 0.75rem',
+              borderRadius: '8px',
+              border: currentLang === 'vi' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+              background: currentLang === 'vi' ? '#eff6ff' : 'white',
+              cursor: 'pointer'
+            }}
+          >
+            TIẾNG VIỆT
+          </button>
+          <button
+            onClick={() => handleLanguageChange('en')}
+            disabled={translateLoading}
+            style={{
+              padding: '0.5rem 0.75rem',
+              borderRadius: '8px',
+              border: currentLang === 'en' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+              background: currentLang === 'en' ? '#eff6ff' : 'white',
+              cursor: translateLoading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {translateLoading ? 'Loading…' : 'ENGLISH'}
+          </button>
+        </div>
+
         {/* Author Info */}
         <div style={{
           display: 'flex',
@@ -393,12 +741,6 @@ export default function ArticleDetail() {
         {/* Article Body */}
         <div
           className="article-content"
-          style={{
-            background: 'white',
-            padding: '3rem',
-            borderRadius: '16px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}
           dangerouslySetInnerHTML={{ __html: article.content }}
         />
 

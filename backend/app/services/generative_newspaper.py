@@ -64,20 +64,44 @@ class generative_newspaper:
         print("🔍 BẮT ĐẦU LẤY TRENDING KEYWORDS")
         print(f"{'='*80}")
         
+        def _pytrends_call(name, *args, retries: int = 4, initial_delay: float = 2.0, **kwargs):
+            """Helper to call pytrends methods with retry + exponential backoff.
+
+            name: method name on self.pytrends (str)
+            args/kwargs: forwarded to the method
+            retries: number of attempts
+            initial_delay: base delay in seconds
+            """
+            for attempt in range(1, retries + 1):
+                try:
+                    method = getattr(self.pytrends, name)
+                    return method(*args, **kwargs)
+                except Exception as e:
+                    # If last attempt, re-raise so caller can fallback
+                    if attempt == retries:
+                        print(f"   ❌ pytrends.{name} failed after {retries} attempts: {e}")
+                        raise
+                    # Exponential backoff with jitter
+                    delay = initial_delay * (2 ** (attempt - 1)) + random.random()
+                    print(f"   ⚠️ pytrends.{name} failed (attempt {attempt}/{retries}): {e}")
+                    print(f"      → Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+
         for topic in topics:
             try:
                 print(f"\n📊 Đang tìm trending cho: {topic}")
-                
-                # GIẢM delay xuống 2 giây (vẫn đủ tránh rate limit)
-                print("   ⏳ Đợi 2 giây để tránh rate limit...")
-                time.sleep(2)
-                
-                # Build payload với timeframe ngắn hơn
-                self.pytrends.build_payload([topic], timeframe='now 7-d')
-                
-                # Lấy related queries
-                related = self.pytrends.related_queries()
-                
+
+                # Increase delay to reduce chance of 429 (randomize a bit)
+                wait = random.uniform(3.0, 6.0)
+                print(f"   ⏳ Đợi {wait:.1f} giây để tránh rate limit...")
+                time.sleep(wait)
+
+                # Build payload with retries
+                _pytrends_call('build_payload', [topic], timeframe='now 7-d', retries=4, initial_delay=2.0)
+
+                # Get related queries with retries
+                related = _pytrends_call('related_queries', retries=4, initial_delay=2.0)
+
                 if topic in related:
                     top = related[topic].get('top')
                     if top is not None and not top.empty:
@@ -86,9 +110,9 @@ class generative_newspaper:
                         print(f"   ✅ Lấy được {len(keywords)} keywords:")
                         for kw in keywords:
                             print(f"      • {kw}")
-            
-            except Exception as e:
-                print(f"   ❌ Lỗi: {e}")
+
+            except Exception:
+                # Don't print the low-level stack here; helper already logged attempts
                 print(f"   ⚠️ Sử dụng fallback keywords cho {topic}")
         
         # Nếu không lấy được từ API, dùng fallback NGAY

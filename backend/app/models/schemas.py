@@ -174,6 +174,8 @@ class TranslationResponse(BaseModel):
     translated_title: str
     translated_content: str
     translated_summary: Optional[str] = None
+    translated_at: Optional[datetime] = None
+    translated_by: Optional[str] = None
 
 
 # ===================== Comment Schemas =====================

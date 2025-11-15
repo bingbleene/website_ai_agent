@@ -155,9 +155,9 @@ sudo apt install git
 3. Chọn **"Connect your application"**
 4. Driver: **Python** / Version: **3.12 or later**
 5. Copy connection string, dạng:
-   ```
-   mongodb+srv://admin:<password>@ai-news-cluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
-   ```
+  ```
+  mongodb+srv://ai_news_db:Teamnews123@ai-news-cluster.zdmuvnp.mongodb.net/?appName=ai-news-cluster
+  ```
 6. **Thay `<password>` bằng mật khẩu thực của bạn** (bước 3)
 7. **GHI NHỚ CONNECTION STRING NÀY**
 
@@ -372,7 +372,7 @@ SECRET_KEY=your-super-secret-key-change-this-in-production-123456
 JWT_SECRET_KEY=jwt-secret-key-change-this-too-987654
 
 # MongoDB Atlas (QUAN TRỌNG - Điền connection string từ bước 3.5)
-MONGODB_URI=mongodb+srv://admin:Admin123456@ai-news-cluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://ai_news_db:Teamnews123@ai-news-cluster.zdmuvnp.mongodb.net/?appName=ai-news-cluster
 MONGODB_DB_NAME=ai_news_db
 
 # OpenAI (QUAN TRỌNG - Điền API key từ bước 5.A)

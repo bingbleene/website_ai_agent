@@ -1,7 +1,7 @@
 """
 Articles API Endpoints
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -11,6 +11,7 @@ from app.models.schemas import (
     ArticleCreate, ArticleUpdate, ArticleResponse, 
     ArticleAIEnhancement, SchedulePublishRequest
 )
+from app.models.schemas import TranslationResponse
 from app.core.database import get_database
 from app.core.security import get_current_user, get_current_admin_user
 from app.services.google_service import gemini_service
@@ -24,6 +25,7 @@ router = APIRouter()
 async def create_article(
     article_data: ArticleCreate,
     current_user: dict = Depends(get_current_user),
+    background_tasks: BackgroundTasks = None,
     db = Depends(get_database)
 ):
     """Create new article"""
@@ -56,7 +58,15 @@ async def create_article(
         # Get created article
         article = await db.articles.find_one({"_id": ObjectId(article_id)})
         article['_id'] = article_id
-        
+
+        # Enqueue background translation to English (non-blocking)
+        try:
+            if background_tasks is not None:
+                background_tasks.add_task(_translate_and_save, article_id, db)
+                logger.info(f"📥 Enqueued background translation for article {article_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to enqueue background translation: {e}")
+
         return ArticleResponse(**article)
         
     except Exception as e:
@@ -337,6 +347,103 @@ async def approve_article(
     except Exception as e:
         logger.error(f"❌ Approve article error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _translate_and_save(article_id: str, db):
+    """Background task: translate article to English and upsert into english_trans collection."""
+    try:
+        if db is None:
+            logger.warning("⚠️ DB instance is None; cannot perform background translation")
+            return
+
+        # Fetch article by id (try int, string, ObjectId)
+        article = None
+        try:
+            query_id = int(article_id)
+            article = await db.articles.find_one({"_id": query_id})
+        except Exception:
+            pass
+        if not article:
+            article = await db.articles.find_one({"_id": article_id})
+        if not article:
+            try:
+                article = await db.articles.find_one({"_id": ObjectId(article_id)})
+            except Exception:
+                pass
+        if not article:
+            logger.warning(f"⚠️ Background translate: Article not found: {article_id}")
+            return
+
+        # If english_trans already exists in collection, skip
+        try:
+            existing = await db.english_trans.find_one({"article_id": str(article.get('_id'))})
+            if existing:
+                logger.info(f"ℹ️ english_trans already exists for {article_id}, skipping background translate")
+                return
+        except Exception:
+            # If collection doesn't exist or query fails, continue and attempt to write
+            pass
+
+        # Perform translation
+        try:
+            from app.services.google_service import google_service, gemini_service
+            from app.services.translation_utils import clean_translated_text
+
+            source_lang = article.get('language', 'vi') or 'vi'
+            translated_title = None
+            translated_content = None
+            translated_summary = None
+
+            if getattr(google_service, 'translate_client', None):
+                try:
+                    title_tr = await google_service.translate_text(article.get('title', ''), target_language='en', source_language=source_lang)
+                    content_tr = await google_service.translate_text(article.get('content', ''), target_language='en', source_language=source_lang)
+                    translated_title = title_tr.get('translated_text')
+                    translated_content = content_tr.get('translated_text')
+                    if article.get('excerpt'):
+                        ex_tr = await google_service.translate_text(article.get('excerpt', ''), target_language='en', source_language=source_lang)
+                        translated_summary = ex_tr.get('translated_text')
+                except Exception as e:
+                    logger.warning(f"⚠️ Background translate Google failed: {e}")
+                    translated_title = article.get('title')
+                    translated_content = None
+            else:
+                # Fallback to Gemini prompt
+                try:
+                    prompt = f"Translate the following Vietnamese article to English.\n\nTitle: {article.get('title','')}\n\nContent:\n{article.get('content','')}"
+                    translated_text = await gemini_service.generate_text(prompt, max_tokens=2000)
+                    translated_title = article.get('title')
+                    translated_content = translated_text
+                    translated_summary = article.get('excerpt')
+                except Exception as e:
+                    logger.warning(f"⚠️ Background translate Gemini failed: {e}")
+
+            if not translated_content:
+                logger.warning(f"⚠️ No translated content produced for article {article_id}")
+                return
+
+            tr_doc = {
+                'article_id': str(article.get('_id')),
+                'title': translated_title or '',
+                'content': translated_content,
+                'excerpt': translated_summary,
+                'translated_at': datetime.utcnow().isoformat() + 'Z',
+                'translated_by': 'google' if getattr(google_service, 'translate_client', None) else 'gemini'
+            }
+
+            # Clean content to HTML when possible
+            try:
+                tr_doc['content'] = clean_translated_text(tr_doc.get('content', ''))
+            except Exception:
+                pass
+
+            await db.english_trans.update_one({'article_id': tr_doc['article_id']}, {'$set': tr_doc}, upsert=True)
+            logger.info(f"✅ Background translated and saved english_trans for article {article_id}")
+
+        except Exception as e:
+            logger.error(f"❌ Background translation error for {article_id}: {e}")
+    except Exception as e:
+        logger.error(f"❌ Unexpected error in background translate: {e}")
 
 
 @router.get("/search/similar/{article_id}")
@@ -674,3 +781,152 @@ async def get_public_article_by_id(article_id: str, db = Depends(get_database)):
     except Exception as e:
         logger.error(f"❌ Get public article by ID error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/public/articles/{article_id}/translate/{lang}", response_model=TranslationResponse)
+async def public_translate_article(article_id: str, lang: str, db = Depends(get_database)):
+    """Public endpoint: return (and create if needed) a translated version of an article."""
+    try:
+        # Fetch article (try int/string/ObjectId as earlier)
+        article = None
+        try:
+            query_id = int(article_id)
+            article = await db.articles.find_one({"_id": query_id, "status": "published"})
+        except Exception:
+            pass
+        if not article:
+            article = await db.articles.find_one({"_id": article_id, "status": "published"})
+        if not article:
+            try:
+                article = await db.articles.find_one({"_id": ObjectId(article_id), "status": "published"})
+            except Exception:
+                pass
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        # If translation exists, return it (English stored in separate `english_trans` collection)
+        if lang == 'en':
+            try:
+                article_id_str = str(article['_id'])
+                tr = await db.english_trans.find_one({"article_id": article_id_str})
+                if tr:
+                    return TranslationResponse(
+                        article_id=article_id_str,
+                        original_language=article.get('language', 'vi'),
+                        target_language=lang,
+                        translated_title=tr.get('title', ''),
+                        translated_content=tr.get('content', ''),
+                        translated_summary=tr.get('excerpt'),
+                        translated_at=tr.get('translated_at'),
+                        translated_by=tr.get('translated_by')
+                    )
+            except Exception:
+                # If english_trans collection is missing or query fails, fall back to checking embedded field
+                tr = article.get('english_trans')
+                if tr:
+                    return TranslationResponse(
+                        article_id=str(article['_id']),
+                        original_language=article.get('language', 'vi'),
+                        target_language=lang,
+                        translated_title=tr.get('title', ''),
+                        translated_content=tr.get('content', ''),
+                        translated_summary=tr.get('excerpt'),
+                        translated_at=tr.get('translated_at'),
+                        translated_by=tr.get('translated_by')
+                    )
+        else:
+            translations = article.get('translations', {}) or {}
+            if lang in translations:
+                tr = translations[lang]
+                return TranslationResponse(
+                    article_id=str(article['_id']),
+                    original_language=article.get('language', 'vi'),
+                    target_language=lang,
+                    translated_title=tr.get('title', ''),
+                    translated_content=tr.get('content', ''),
+                    translated_summary=tr.get('excerpt'),
+                    translated_at=tr.get('translated_at'),
+                    translated_by=tr.get('translated_by')
+                )
+
+        # Otherwise, perform translation (prefer Google Cloud, fallback to Gemini)
+        from app.services.google_service import google_service, gemini_service
+
+        # Detect source language (best-effort)
+        try:
+            source_lang = await google_service.detect_language(article.get('title', '')) if getattr(google_service, 'translate_client', None) else 'vi'
+        except Exception:
+            source_lang = article.get('language', 'vi') or 'vi'
+
+        translated_title = None
+        translated_content = None
+        translated_summary = None
+
+        try:
+            if getattr(google_service, 'translate_client', None):
+                title_tr = await google_service.translate_text(article.get('title', ''), target_language=lang, source_language=source_lang)
+                content_tr = await google_service.translate_text(article.get('content', ''), target_language=lang, source_language=source_lang)
+                translated_title = title_tr.get('translated_text')
+                translated_content = content_tr.get('translated_text')
+                if article.get('excerpt'):
+                    ex_tr = await google_service.translate_text(article.get('excerpt', ''), target_language=lang, source_language=source_lang)
+                    translated_summary = ex_tr.get('translated_text')
+            else:
+                # Fallback: use Gemini to perform translation via prompt
+                prompt = f"Translate the following Vietnamese article to {lang}.\n\nTitle: {article.get('title','')}\n\nContent:\n{article.get('content','')}"
+                translated_text = await gemini_service.generate_text(prompt, max_tokens=2000)
+                translated_title = article.get('title')
+                translated_content = translated_text
+                translated_summary = article.get('excerpt')
+
+            # Persist translation into english_trans collection (for 'en') or into article.translations for others
+            tr_doc = {
+                'title': translated_title,
+                'content': translated_content,
+                'excerpt': translated_summary,
+                'translated_at': datetime.utcnow().isoformat() + 'Z',
+                'translated_by': 'google' if getattr(google_service, 'translate_client', None) else 'gemini'
+            }
+            # Clean English content to HTML for better frontend rendering
+            if lang == 'en':
+                try:
+                    from app.services.translation_utils import clean_translated_text
+                    tr_doc['content'] = clean_translated_text(tr_doc.get('content', ''))
+                except Exception:
+                    pass
+            # Persist English translations to top-level `english_trans`, others to `translations.{lang}`
+            # For English, save to english_trans collection linked by article_id; for other languages keep translations.{lang}
+            if lang == 'en':
+                try:
+                    article_id_str = str(article['_id'])
+                    tr_doc['article_id'] = article_id_str
+                    # Clean English content to HTML for better frontend rendering
+                    try:
+                        from app.services.translation_utils import clean_translated_text
+                        tr_doc['content'] = clean_translated_text(tr_doc.get('content', ''))
+                    except Exception:
+                        pass
+                    await db.english_trans.update_one({"article_id": article_id_str}, {"$set": tr_doc}, upsert=True)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to persist english_trans document: {e}")
+            else:
+                await db.articles.update_one({"_id": article['_id']}, {"$set": {f"translations.{lang}": tr_doc}})
+
+            return TranslationResponse(
+                article_id=str(article['_id']),
+                original_language=article.get('language', 'vi'),
+                target_language=lang,
+                translated_title=translated_title,
+                translated_content=translated_content,
+                translated_summary=translated_summary
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Public translate error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Public translate top-level error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -20,8 +20,8 @@ async def fetch_and_save_articles(feed_url: str):
     """
    
     logger.info(f"Fetching news from: {feed_url}")
-    db = get_database() 
-    if not db:
+    db = get_database()
+    if db is None:
         logger.error("Database client is not available for news fetcher.")
         return 0
 

@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # MongoDB
     MONGODB_URI: str
     MONGODB_DB_NAME: str = "ai_news_db"
+    # Optional: separate credentials (used by helper fallback or interactive setup)
+    MONGODB_USER: str = ""
+    MONGODB_PASSWORD: str = ""
+    MONGODB_HOST: str = ""  # e.g. ai-news-cluster.zdmuvnp.mongodb.net
     
     # OpenAI
     OPENAI_API_KEY: str

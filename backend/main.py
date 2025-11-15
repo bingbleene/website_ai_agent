@@ -114,8 +114,85 @@ def generate_article_job():
         
         # Insert vào MongoDB
         result = db.articles.insert_one(article)
+
+        # === Auto-translate: try to produce an English version and save under translations.en ===
+        try:
+            from app.services.google_service import google_service, gemini_service
+            import asyncio
+
+            translated = None
+            # Prefer Google Cloud Translation if configured
+            if getattr(google_service, 'translate_client', None):
+                try:
+                    title_trans = asyncio.run(google_service.translate_text(article['title'], target_language='en'))
+                    content_trans = asyncio.run(google_service.translate_text(article['content'], target_language='en'))
+                    excerpt_trans = None
+                    if article.get('excerpt'):
+                        ex_tr = asyncio.run(google_service.translate_text(article.get('excerpt', ''), target_language='en'))
+                        excerpt_trans = ex_tr.get('translated_text')
+
+                    translations = {
+                        'en': {
+                            'title': title_trans.get('translated_text'),
+                            'content': content_trans.get('translated_text'),
+                            'excerpt': excerpt_trans,
+                            'translated_at': datetime.utcnow().isoformat() + 'Z',
+                            'translated_by': 'google'
+                        }
+                    }
+                except Exception as e:
+                    logger.warning(f"⚠️ Auto-translate (Google) failed: {e}")
+                    translations = None
+            else:
+                # Fallback: use Gemini text generation to produce an English translation
+                try:
+                    prompt = f"Translate the following Vietnamese article to English.\n\nTitle: {article['title']}\n\nContent:\n{article['content']}"
+                    translated_text = asyncio.run(gemini_service.generate_text(prompt, max_tokens=2000))
+                    translations = {
+                        'en': {
+                            'title': article['title'],
+                            'content': translated_text,
+                            'excerpt': article.get('excerpt'),
+                            'translated_at': datetime.utcnow().isoformat() + 'Z',
+                            'translated_by': 'gemini'
+                        }
+                    }
+                except Exception as e:
+                    logger.warning(f"⚠️ Auto-translate (Gemini) failed: {e}")
+                    translations = None
+
+            if translations:
+                try:
+                    # Clean and normalize content before saving
+                    try:
+                        from app.services.translation_utils import clean_translated_text
+                        translations['en']['content'] = clean_translated_text(translations['en'].get('content', ''))
+                        # Ensure title/excerpt are simple strings
+                        translations['en']['title'] = translations['en'].get('title', '').strip()
+                        if translations['en'].get('excerpt'):
+                            translations['en']['excerpt'] = translations['en']['excerpt'].strip()
+                    except Exception as _:
+                        # If cleaning fails, continue with raw text
+                        pass
+
+                    # Save English translation into a separate collection `english_trans`, linked by article_id
+                    try:
+                        article_id_str = str(result.inserted_id)
+                        tr_doc = translations['en'].copy()
+                        tr_doc['article_id'] = article_id_str
+                        # Ensure translated_at exists
+                        tr_doc.setdefault('translated_at', datetime.utcnow().isoformat() + 'Z')
+                        db.english_trans.update_one({'article_id': article_id_str}, {'$set': tr_doc}, upsert=True)
+                        logger.info(f"✅ Saved auto-translation into 'english_trans' collection for article ID: {new_id}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to save translation to english_trans collection: {e}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to save translation to DB: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-translate flow failed: {e}")
+
         client.close()
-        
+
         logger.info(f"✅ Created article: {article['title']} (ID: {new_id})")
         logger.info(f"📦 Queue remaining: {len(pending_keywords)}")
         
