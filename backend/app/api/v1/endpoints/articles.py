@@ -564,7 +564,7 @@ async def get_public_articles(
                 "excerpt": article.get('excerpt', ''),
                 "content": article.get('content', ''),
                 "summary": article.get('excerpt', ''),
-                "category": api_category,
+                "category": article.get('category', 'Technology'),
                 "tags": article.get('tags', []),
                 "featured_image": article.get('thumbnail', ''),
                 "language": article.get('language', 'vi'),

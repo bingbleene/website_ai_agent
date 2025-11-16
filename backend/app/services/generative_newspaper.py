@@ -12,13 +12,14 @@ import google.generativeai as genai
 class generative_newspaper:
     """Class tự động lấy trending keywords và tạo bài viết"""
     
-    def __init__(self, api_key: str, unsplash_api_key: str = None):
+    def __init__(self, api_key: str, unsplash_api_key: str = None, model_name: str = 'models/gemini-pro-latest'):
         """
         Khởi tạo generative_newspaper
         
         Args:
             api_key: Google Gemini API key
             unsplash_api_key: Unsplash API key (optional)
+            model_name: Tên model Gemini muốn dùng (ưu tiên truyền vào)
         """
         # Khởi tạo pytrends với timeout cao
         self.pytrends = TrendReq(
@@ -30,8 +31,14 @@ class generative_newspaper:
         
         # Khởi tạo Gemini
         genai.configure(api_key=api_key)
-        # Sử dụng model mới nhất: gemini-2.5-flash
-        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
+        # Ưu tiên model truyền vào, nếu không có thì dùng gemini-pro
+        available_models = [m.name for m in genai.list_models()]
+        if model_name in available_models:
+            self.model = genai.GenerativeModel(model_name)
+            print(f"✅ Đang dùng model: {model_name}")
+        else:
+            self.model = genai.GenerativeModel('models/gemini-pro')
+            print("⚠️ Model truyền vào không tồn tại, dùng gemini-pro mặc định")
         
         # Unsplash API key
         self.unsplash_api_key = unsplash_api_key
@@ -45,16 +52,11 @@ class generative_newspaper:
         Returns:
             List 20 từ khóa trending
         """
-        # Fallback keywords nếu API bị rate limit
+        # Fallback keywords nếu API bị rate limit (giống category_map)
         fallback_keywords = [
-            # Việt Nam
-            "công nghệ AI", "bóng đá việt nam", "AI trong học đường", "giá vàng việt nam", "chứng khoán",
-            # Công nghệ
-            "AI 2025", "chatgpt", "trí tuệ nhân tạo", "điện thoại mới", "công nghệ blockchain", "AI Agent",
-            # Crypto
-            "bitcoin", "crypto 2025", "ethereum", "giá bitcoin", "đầu tư crypto",
-            # Du lịch
-            "tour du lịch", "du lịch việt nam", "khu du lịch", "du lịch hè", "điểm du lịch hot"
+            "AI Models", "Tech Innovations", "Blockchain", "Software", "Healthcare", "Finance", "Economy", "Politics", "Sports", "Entertainment", "Science", "World News", "Local News", "Technology", "Công nghệ", "Kinh tế", "Chính trị", "Thể thao", "Giải trí", "Sức khỏe", "Khoa học",
+            # Trending keywords mapping
+            "công nghệ AI", "bóng đá việt nam", "AI trong học đường", "giá vàng việt nam", "chứng khoán", "AI 2025", "chatgpt", "trí tuệ nhân tạo", "điện thoại mới", "công nghệ blockchain", "AI Agent", "bitcoin", "crypto 2025", "ethereum", "giá bitcoin", "đầu tư crypto", "tour du lịch", "du lịch việt nam", "khu du lịch", "du lịch hè", "điểm du lịch hot"
         ]
         
         topics = ["Việt Nam", "Công Nghệ", "Crypto", "Du lịch"]
@@ -119,6 +121,7 @@ class generative_newspaper:
         if len(all_keywords) < 10:  # Giảm threshold xuống 10
             print(f"\n⚠️ API chậm hoặc bị rate limit (chỉ có {len(all_keywords)} keywords)")
             print(f"   → Sử dụng fallback keywords")
+            random.shuffle(fallback_keywords)
             all_keywords = fallback_keywords
         # Nếu không đủ 20, lấy thêm từ trending searches Vietnam
         elif len(all_keywords) < 20:
