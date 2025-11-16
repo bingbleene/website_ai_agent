@@ -243,7 +243,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         fetch_keywords_job,
         'interval',
-        minutes=5,
+        minutes=30,
         id='fetch_keywords',
         next_run_time=datetime.now(timezone.utc)  # Chạy ngay lập tức
     )
@@ -253,7 +253,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         generate_article_job,
         'interval',
-        seconds=10,
+        seconds=1800,
         id='generate_article'
     )
     logger.info("✅ Scheduler 2: Generate article every 30 secs")
