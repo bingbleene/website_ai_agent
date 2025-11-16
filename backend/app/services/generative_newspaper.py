@@ -8,7 +8,7 @@ import requests
 from typing import List, Dict
 from pytrends.request import TrendReq
 import google.generativeai as genai
-from app.models.schemas import category_map
+from app.models.schemas import category_map, ArticleCategory
 
 
 class generative_newspaper:
@@ -168,10 +168,9 @@ class generative_newspaper:
         Returns:
             Dict chứa: title, slug, excerpt, content, category, status, thumbnail, images
         """
-        # Danh sách category hợp lệ lấy từ category_map
-        # Sử dụng category_map từ schemas.py
-        valid_categories = list(category_map.keys())
-        prompt = f"""Viết một bài viết chi tiết về chủ đề: '{keyword}'\n\nYêu cầu bài viết phải là các chủ đề/bài đang hot nhất hiện nay theo keyword này (dựa trên xu hướng, tin tức, sự kiện nổi bật).\n\nYêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):\n\nTITLE: [Tiêu đề hấp dẫn 80-100 ký tự]\nSLUG: [url-slug-khong-dau]\nCATEGORY: [Chọn 1 trong các giá trị sau, bắt buộc đúng chính tả, không tự chế: {', '.join(valid_categories)}]\nEXCERPT: [Tóm tắt ngắn 150-200 từ]\nCONTENT:\n[Nội dung chính đầy đủ 1000-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng.\nMỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]\n\nLưu ý:\n- TITLE: Tiêu đề hấp dẫn, thu hút người đọc\n- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)\n- CATEGORY: Phân loại chính xác theo nội dung bài viết, chỉ chọn đúng 1 trong các giá trị trên\n- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết\n- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng\n- Ngôn ngữ: Tiếng Việt\n- Phong cách: Chuyên nghiệp, dễ hiểu\n\nBắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
+        # Danh sách category hợp lệ lấy từ enum ArticleCategory (không dùng keys của category_map)
+        valid_categories = [c.value for c in ArticleCategory]
+        prompt = f"""Viết một bài viết chi tiết về chủ đề: '{keyword}'\n\nYêu cầu bài viết phải là các chủ đề/bài đang hot nhất hiện nay theo keyword này (dựa trên xu hướng, tin tức, sự kiện nổi bật).\n\nYêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):\n\nTITLE: [Tiêu đề hấp dẫn 80-100 ký tự]\nSLUG: [url-slug-khong-dau]\nCATEGORY: [Chọn 1 trong các giá trị sau, bắt buộc đúng chính tả, không tự chế: {', '.join(valid_categories)}]\nEXCERPT: [Tóm tắt ngắn 150-200 từ]\nCONTENT:\n[Nội dung chính đầy đủ 800-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng.\nMỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]\n\nLưu ý:\n- TITLE: Tiêu đề hấp dẫn, thu hút người đọc\n- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)\n- CATEGORY: Phân loại chính xác theo nội dung bài viết, chỉ chọn đúng 1 trong các giá trị trên\n- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết\n- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng\n- Ngôn ngữ: Tiếng Việt\n- Phong cách: Chuyên nghiệp, dễ hiểu\n\nYÊU CẦU BỔ SUNG (QUAN TRỌNG): KHÔNG được lặp nội dung hoặc câu chữ đã xuất hiện trong các bài trước về cùng keyword. Hãy chọn một góc nhìn mới, cập nhật thông tin mới nhất và tránh trùng lặp.\n\nTHÊM: Ở cuối response, cung cấp 3-5 \"ALT_ANGLES\" — mỗi dòng là một tiêu đề/góc nhìn ngắn (5-12 từ) khác nhau có thể dùng để tạo tiếp bài mới từ cùng category. Định dạng bắt buộc:\n\nALT_ANGLES:\n- angle 1\n- angle 2\n- angle 3\n\nBắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
 
         print(f"🤖 Đang tạo bài viết cho: '{keyword}'", flush=True)
         
@@ -208,6 +207,7 @@ class generative_newspaper:
             "content": content_with_images,
             "thumbnail": thumbnail['url'],
             "thumbnail_alt": thumbnail['alt']
+            , "angles": article_data.get('angles', [])
         }
     
     def _parse_article_response(self, raw_text: str, keyword: str) -> dict:
@@ -233,16 +233,50 @@ class generative_newspaper:
         # Extract hoặc dùng fallback
         title = title_match.group(1).strip() if title_match else f"Bài viết về {keyword}"
         slug = slug_match.group(1).strip() if slug_match else keyword.lower().replace(' ', '-')
-        category = category_match.group(1).strip() if category_match else "Technology"
+        category_raw = category_match.group(1).strip() if category_match else keyword
+        # Normalize category: if AI returned a keyword (left-side of category_map), map it;
+        # if AI returned a value matching ArticleCategory, use it; otherwise fallback
+        category = None
+        # Check if AI returned a keyword that exists in category_map
+        if category_raw in category_map:
+            category = category_map[category_raw]
+        else:
+            # Match against ArticleCategory values (case-insensitive)
+            raw_lower = category_raw.lower()
+            matched = None
+            for c in ArticleCategory:
+                if c.value.lower() == raw_lower:
+                    matched = c.value
+                    break
+            if matched:
+                category = matched
+            else:
+                # Fallback to technology
+                category = ArticleCategory.TECHNOLOGY.value
         excerpt = excerpt_match.group(1).strip() if excerpt_match else raw_text[:200]
         content = content_match.group(1).strip() if content_match else raw_text
-        
+
+        # Parse ALT_ANGLES if present (list of lines starting with '-' after 'ALT_ANGLES:')
+        angles = []
+        angles_match = re.search(r'ALT_ANGLES:\s*(.+)$', raw_text, re.IGNORECASE | re.DOTALL)
+        if angles_match:
+            angles_block = angles_match.group(1).strip()
+            # Split into lines and extract items that start with -, * or digits
+            lines = [l.strip() for l in angles_block.splitlines()]
+            for line in lines:
+                m = re.match(r'^[\-\*\d\.\)\s]*(.+)$', line)
+                if m:
+                    text = m.group(1).strip()
+                    if text:
+                        angles.append(text)
+
         return {
             "title": title,
             "slug": slug,
             "category": category,
             "excerpt": excerpt,
-            "content": content
+            "content": content,
+            "angles": angles
         }
     
     def _insert_images_to_content(self, content: str, images: List[Dict]) -> str:
@@ -367,8 +401,21 @@ class generative_newspaper:
         if article is None:
             print(f"⏸️ Không tạo bài cho keyword '{keyword}' do lỗi Gemini API.")
             return None
-        # Map category AI sang enum backend
-        api_category = category_map.get(article.get('category', 'Technology'), 'technology')
+        # Normalize category from article to API category value
+        returned_cat = article.get('category', '')
+        api_category = None
+        # If returned_cat exactly matches an ArticleCategory value (case-insensitive)
+        for c in ArticleCategory:
+            if c.value.lower() == str(returned_cat).lower():
+                api_category = c.value
+                break
+        # If not matched, check if it's a keyword that maps via category_map
+        if not api_category:
+            if returned_cat in category_map:
+                api_category = category_map[returned_cat]
+        # Final fallback
+        if not api_category:
+            api_category = ArticleCategory.TECHNOLOGY.value
         return {
             "title": article['title'],
             "slug": article['slug'],

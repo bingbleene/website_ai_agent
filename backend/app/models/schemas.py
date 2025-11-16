@@ -26,17 +26,27 @@ class ArticleStatus(str, Enum):
     ARCHIVED = "archived"
 
 
+# ===================== Category Map =====================
 class ArticleCategory(str, Enum):
-    POLITICS = "politics"
     TECHNOLOGY = "technology"
-    BUSINESS = "business"
-    SPORTS = "sports"
-    ENTERTAINMENT = "entertainment"
-    HEALTH = "health"
-    SCIENCE = "science"
-    WORLD = "world"
-    LOCAL = "local"
+    AI = "AI"
+    BLOCKCHAIN = "Blockchain"
+    CRYPTO = "Crypto"
+    NFT = "NFT"
+    GENESIS_BLOCK = "Genesis Block"
 
+category_map = {
+    "AI Models": "AI",
+    "Tech Innovations": "technology",
+    "Blockchain": "Blockchain",
+    "Software": "technology",
+    "Crypto": "Crypto",
+    "NFT": "Crypto",
+    "Genesis Block": "Crypto",
+    "AI trong chụp ảnh": "AI",
+    "AI tạo video": "AI",
+    "Hệ Điều Hành": "technology",
+}
 
 class SentimentType(str, Enum):
     POSITIVE = "positive"
@@ -162,19 +172,6 @@ class ArticleResponse(ArticleBase):
 
 # ===================== Translation Schemas =====================
 
-# ===================== Category Map =====================
-category_map = {
-    "AI Models": "AI",
-    "Tech Innovations": "technology",
-    "Blockchain": "Blockchain",
-    "Software": "technology",
-    "Crypto": "Crypto",
-    "NFT": "Crypto",
-    "Genesis Block": "Crypto",
-    "AI trong chụp ảnh": "AI",
-    "AI tạo video": "AI",
-    "Hệ Điều Hành": "technology",
-}
 
 class TranslationRequest(BaseModel):
     article_id: str

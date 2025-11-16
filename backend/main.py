@@ -84,13 +84,24 @@ def generate_article_job():
         import os
         client = MongoClient(os.getenv("MONGODB_URI"))
         db = client[os.getenv("MONGODB_DB_NAME")]
+        # Normalize slug/title
+        slug_val = article_data.get("slug", "").strip().lower()
+        title_val = article_data.get("title", "").strip()
+
+        # Duplicate checks: if slug or title already exists, skip insert
+        dup_query = {"$or": [{"slug": slug_val}, {"title": title_val}]}
+        existing = db.articles.find_one(dup_query)
+        if existing:
+            logger.info(f"⏸️ Bỏ qua tạo bài trùng lặp (slug/title tồn tại): {title_val}")
+            return
+
         # Đếm articles hiện tại
         count = db.articles.count_documents({})
         new_id = count + 1
         article = {
             "_id": str(new_id),
             "title": article_data.get("title", ""),
-            "slug": article_data.get("slug", ""),
+            "slug": slug_val,
             "excerpt": article_data.get("excerpt", ""),
             "content": article_data.get("content", ""),
             "categoryId": new_id,
@@ -112,6 +123,26 @@ def generate_article_job():
         }
         # Insert vào MongoDB
         result = db.articles.insert_one(article)
+
+        # After creating, push generated alternative angles into queue (limit and dedupe)
+        try:
+            angles = article_data.get('angles', []) if isinstance(article_data, dict) else []
+            if angles:
+                added = 0
+                # Avoid runaway queue: only add if pending < 50 and not in existing
+                for ang in angles:
+                    if len(pending_keywords) >= 50:
+                        break
+                    ang_str = ang.strip()
+                    if ang_str and ang_str not in existing_keywords:
+                        existing_keywords.add(ang_str)
+                        pending_keywords.append(ang_str)
+                        added += 1
+                        logger.info(f"➕ Generated angle queued: {ang_str}")
+                if added:
+                    logger.info(f"✅ Added {added} generated angles to queue")
+        except Exception as _:
+            pass
 
         # === Auto-translate: try to produce an English version and save under translations.en ===
         try:
