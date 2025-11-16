@@ -1,12 +1,14 @@
 """
 generative_newspaper - Tự động tạo bài báo từ trending keywords
 """
+
 import random
 import time
 import requests
 from typing import List, Dict
 from pytrends.request import TrendReq
 import google.generativeai as genai
+from app.models.schemas import category_map
 
 
 class generative_newspaper:
@@ -33,12 +35,24 @@ class generative_newspaper:
         genai.configure(api_key=api_key)
         # Ưu tiên model truyền vào, nếu không có thì dùng gemini-pro
         available_models = [m.name for m in genai.list_models()]
+        # Nếu model_name không có tiền tố 'models/', tự động thêm vào
+        if not model_name.startswith('models/'):
+            model_name = f'models/{model_name}'
+        # Nếu model_name hợp lệ thì dùng, nếu không thì chọn model mới nhất
         if model_name in available_models:
             self.model = genai.GenerativeModel(model_name)
             print(f"✅ Đang dùng model: {model_name}")
         else:
-            self.model = genai.GenerativeModel('models/gemini-pro')
-            print("⚠️ Model truyền vào không tồn tại, dùng gemini-pro mặc định")
+            # Ưu tiên model mới nhất có 'gemini' và 'pro' trong tên
+            fallback_models = [m for m in available_models if 'gemini' in m and 'pro' in m]
+            if fallback_models:
+                best_model = fallback_models[-1]
+                self.model = genai.GenerativeModel(best_model)
+                print(f"⚠️ Model truyền vào không tồn tại, dùng model mới nhất: {best_model}")
+            else:
+                # Nếu không có model phù hợp, dùng model đầu tiên
+                self.model = genai.GenerativeModel(available_models[0])
+                print(f"⚠️ Model truyền vào không tồn tại, dùng model đầu tiên: {available_models[0]}")
         
         # Unsplash API key
         self.unsplash_api_key = unsplash_api_key
@@ -47,102 +61,27 @@ class generative_newspaper:
     
     def get_trending_keywords(self) -> List[str]:
         """
-        Lấy 20 từ khóa hot trending về: Việt Nam, Công Nghệ, Crypto, Du lịch
-        
+        Lấy trending keywords từ Google Trends, chỉ giữ các từ khoá có trong category_map
         Returns:
-            List 20 từ khóa trending
+            List trending keywords hợp lệ
         """
-        # Fallback keywords nếu API bị rate limit (giống category_map)
-        fallback_keywords = [
-            "AI Models", "Tech Innovations", "Blockchain", "Software", "Healthcare", "Finance", "Economy", "Politics", "Sports", "Entertainment", "Science", "World News", "Local News", "Technology", "Công nghệ", "Kinh tế", "Chính trị", "Thể thao", "Giải trí", "Sức khỏe", "Khoa học",
-            # Trending keywords mapping
-            "công nghệ AI", "bóng đá việt nam", "AI trong học đường", "giá vàng việt nam", "chứng khoán", "AI 2025", "chatgpt", "trí tuệ nhân tạo", "điện thoại mới", "công nghệ blockchain", "AI Agent", "bitcoin", "crypto 2025", "ethereum", "giá bitcoin", "đầu tư crypto", "tour du lịch", "du lịch việt nam", "khu du lịch", "du lịch hè", "điểm du lịch hot"
-        ]
-        
-        topics = ["Việt Nam", "Công Nghệ", "Crypto", "Du lịch"]
-        all_keywords = []
-        
         print(f"\n{'='*80}")
         print("🔍 BẮT ĐẦU LẤY TRENDING KEYWORDS")
         print(f"{'='*80}")
-        
-        def _pytrends_call(name, *args, retries: int = 4, initial_delay: float = 2.0, **kwargs):
-            """Helper to call pytrends methods with retry + exponential backoff.
-
-            name: method name on self.pytrends (str)
-            args/kwargs: forwarded to the method
-            retries: number of attempts
-            initial_delay: base delay in seconds
-            """
-            for attempt in range(1, retries + 1):
-                try:
-                    method = getattr(self.pytrends, name)
-                    return method(*args, **kwargs)
-                except Exception as e:
-                    # If last attempt, re-raise so caller can fallback
-                    if attempt == retries:
-                        print(f"   ❌ pytrends.{name} failed after {retries} attempts: {e}")
-                        raise
-                    # Exponential backoff with jitter
-                    delay = initial_delay * (2 ** (attempt - 1)) + random.random()
-                    print(f"   ⚠️ pytrends.{name} failed (attempt {attempt}/{retries}): {e}")
-                    print(f"      → Retrying in {delay:.1f}s...")
-                    time.sleep(delay)
-
-        for topic in topics:
-            try:
-                print(f"\n📊 Đang tìm trending cho: {topic}")
-
-                # Increase delay to reduce chance of 429 (randomize a bit)
-                wait = random.uniform(3.0, 6.0)
-                print(f"   ⏳ Đợi {wait:.1f} giây để tránh rate limit...")
-                time.sleep(wait)
-
-                # Build payload with retries
-                _pytrends_call('build_payload', [topic], timeframe='now 7-d', retries=4, initial_delay=2.0)
-
-                # Get related queries with retries
-                related = _pytrends_call('related_queries', retries=4, initial_delay=2.0)
-
-                if topic in related:
-                    top = related[topic].get('top')
-                    if top is not None and not top.empty:
-                        keywords = top['query'].tolist()[:5]
-                        all_keywords.extend(keywords)
-                        print(f"   ✅ Lấy được {len(keywords)} keywords:")
-                        for kw in keywords:
-                            print(f"      • {kw}")
-
-            except Exception:
-                # Don't print the low-level stack here; helper already logged attempts
-                print(f"   ⚠️ Sử dụng fallback keywords cho {topic}")
-        
-        # Nếu không lấy được từ API, dùng fallback NGAY
-        if len(all_keywords) < 10:  # Giảm threshold xuống 10
-            print(f"\n⚠️ API chậm hoặc bị rate limit (chỉ có {len(all_keywords)} keywords)")
-            print(f"   → Sử dụng fallback keywords")
-            random.shuffle(fallback_keywords)
-            all_keywords = fallback_keywords
-        # Nếu không đủ 20, lấy thêm từ trending searches Vietnam
-        elif len(all_keywords) < 20:
-            try:
-                print(f"\n📊 Lấy thêm từ Trending Searches Vietnam...")
-                time.sleep(2)  # Giảm từ 3 xuống 2
-                trending = self.pytrends.trending_searches(pn='vietnam')
-                extra_keywords = trending[0].tolist()
-                all_keywords.extend(extra_keywords)
-                print(f"   ✅ Lấy thêm được {len(extra_keywords)} keywords")
-            except Exception as e:
-                print(f"   ❌ Lỗi: {e}")
-        
-        # Loại bỏ duplicate, lấy 20 đầu tiên
-        self.trending_keywords = list(dict.fromkeys(all_keywords))[:20]
-        
-        print(f"\n{'='*80}")
-        print(f"✅ HOÀN THÀNH - Tổng cộng: {len(self.trending_keywords)} unique keywords")
-        print(f"{'='*80}")
-        
-        return self.trending_keywords
+        try:
+            trending = self.pytrends.trending_searches(pn='vietnam')
+            raw_keywords = trending[0].tolist()
+        except Exception as e:
+            print(f"⚠️ Lỗi lấy trending từ pytrends: {e}")
+            raw_keywords = []
+        filtered_keywords = [kw for kw in raw_keywords if kw in category_map]
+        if not filtered_keywords:
+            print("⚠️ Không có trending hợp lệ, dùng fallback từ category_map!")
+            filtered_keywords = list(category_map.keys())
+        print(f"✅ HOÀN THÀNH - Tổng cộng: {len(filtered_keywords)} trending hợp lệ")
+        for kw in filtered_keywords:
+            print(f"➕ Keyword: {kw}")
+        return filtered_keywords
     
     def search_images_unsplash(self, keyword: str, count: int = 4) -> List[Dict]:
         """
@@ -230,53 +169,9 @@ class generative_newspaper:
             Dict chứa: title, slug, excerpt, content, category, status, thumbnail, images
         """
         # Danh sách category hợp lệ lấy từ category_map
-        category_map = {
-            "AI Models": "technology",
-            "Tech Innovations": "technology", 
-            "Blockchain": "technology",
-            "Software": "technology",
-            "Healthcare": "health",
-            "Finance": "business",
-            "Economy": "business",
-            "Politics": "politics",
-            "Sports": "sports",
-            "Entertainment": "entertainment",
-            "Science": "science",
-            "World News": "world",
-            "Local News": "local",
-            "Technology": "technology",
-            "Công nghệ": "technology",
-            "Kinh tế": "business",
-            "Chính trị": "politics",
-            "Thể thao": "sports",
-            "Giải trí": "entertainment",
-            "Sức khỏe": "health",
-            "Khoa học": "science",
-            # Trending keywords mapping
-            "công nghệ AI": "technology",
-            "bóng đá việt nam": "sports",
-            "AI trong học đường": "technology",
-            "giá vàng việt nam": "business",
-            "chứng khoán": "business",
-            "AI 2025": "technology",
-            "chatgpt": "technology",
-            "trí tuệ nhân tạo": "technology",
-            "điện thoại mới": "technology",
-            "công nghệ blockchain": "technology",
-            "AI Agent": "technology",
-            "bitcoin": "business",
-            "crypto 2025": "business",
-            "ethereum": "business",
-            "giá bitcoin": "business",
-            "đầu tư crypto": "business",
-            "tour du lịch": "travel",
-            "du lịch việt nam": "travel",
-            "khu du lịch": "travel",
-            "du lịch hè": "travel",
-            "điểm du lịch hot": "travel"
-        }
+        # Sử dụng category_map từ schemas.py
         valid_categories = list(category_map.keys())
-        prompt = f"""Viết một bài viết chi tiết về chủ đề: '{keyword}'\n\nYêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):\n\nTITLE: [Tiêu đề hấp dẫn 80-100 ký tự]\nSLUG: [url-slug-khong-dau]\nCATEGORY: [Chọn 1 trong các giá trị sau, bắt buộc đúng chính tả, không tự chế: {', '.join(valid_categories)}]\nEXCERPT: [Tóm tắt ngắn 150-200 từ]\nCONTENT:\n[Nội dung chính đầy đủ 1000-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng.\nMỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]\n\nLưu ý:\n- TITLE: Tiêu đề hấp dẫn, thu hút người đọc\n- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)\n- CATEGORY: Phân loại chính xác theo nội dung bài viết, chỉ chọn đúng 1 trong các giá trị trên\n- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết\n- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng\n- Ngôn ngữ: Tiếng Việt\n- Phong cách: Chuyên nghiệp, dễ hiểu\n\nBắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
+        prompt = f"""Viết một bài viết chi tiết về chủ đề: '{keyword}'\n\nYêu cầu bài viết phải là các chủ đề/bài đang hot nhất hiện nay theo keyword này (dựa trên xu hướng, tin tức, sự kiện nổi bật).\n\nYêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):\n\nTITLE: [Tiêu đề hấp dẫn 80-100 ký tự]\nSLUG: [url-slug-khong-dau]\nCATEGORY: [Chọn 1 trong các giá trị sau, bắt buộc đúng chính tả, không tự chế: {', '.join(valid_categories)}]\nEXCERPT: [Tóm tắt ngắn 150-200 từ]\nCONTENT:\n[Nội dung chính đầy đủ 1000-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng.\nMỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]\n\nLưu ý:\n- TITLE: Tiêu đề hấp dẫn, thu hút người đọc\n- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)\n- CATEGORY: Phân loại chính xác theo nội dung bài viết, chỉ chọn đúng 1 trong các giá trị trên\n- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết\n- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng\n- Ngôn ngữ: Tiếng Việt\n- Phong cách: Chuyên nghiệp, dễ hiểu\n\nBắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
 
         print(f"🤖 Đang tạo bài viết cho: '{keyword}'", flush=True)
         
@@ -285,28 +180,25 @@ class generative_newspaper:
             temperature=0.7
         )
         
-        response = self.model.generate_content(prompt, generation_config=config)
-        raw_content = response.text
-        
-        # Parse response thành structured data
-        article_data = self._parse_article_response(raw_content, keyword)
-        
-        print(f"✅ Tạo nội dung hoàn thành!", flush=True)
-        
+        try:
+            response = self.model.generate_content(prompt, generation_config=config)
+            raw_content = response.text
+            # Parse response thành structured data
+            article_data = self._parse_article_response(raw_content, keyword)
+            print(f"✅ Tạo nội dung hoàn thành!", flush=True)
+        except Exception as e:
+            print(f"❌ Lỗi tạo bài viết (Gemini API): {e}")
+            return None
         # Tìm kiếm 4 ảnh từ Unsplash
         images = self.search_images_unsplash(keyword, count=4)
-        
         # 1 ảnh làm thumbnail
         thumbnail = images[0] if images else {"url": "", "alt": keyword}
-        
         # 3 ảnh còn lại chèn vào content
         content_with_images = self._insert_images_to_content(
             article_data['content'], 
             images[1:4] if len(images) >= 4 else images[1:]
         )
-        
         print(f"✅ Xử lý ảnh hoàn thành!", flush=True)
-        
         return {
             "title": article_data['title'],
             "slug": article_data['slug'],
@@ -472,56 +364,11 @@ class generative_newspaper:
         
         # Sinh article cơ bản
         article = self.generate_article(keyword)
-        
+        if article is None:
+            print(f"⏸️ Không tạo bài cho keyword '{keyword}' do lỗi Gemini API.")
+            return None
         # Map category AI sang enum backend
-        category_map = {
-            "AI Models": "technology",
-            "Tech Innovations": "technology", 
-            "Blockchain": "technology",
-            "Software": "technology",
-            "Healthcare": "health",
-            "Finance": "business",
-            "Economy": "business",
-            "Politics": "politics",
-            "Sports": "sports",
-            "Entertainment": "entertainment",
-            "Science": "science",
-            "World News": "world",
-            "Local News": "local",
-            "Technology": "technology",
-            "Công nghệ": "technology",
-            "Kinh tế": "business",
-            "Chính trị": "politics",
-            "Thể thao": "sports",
-            "Giải trí": "entertainment",
-            "Sức khỏe": "health",
-            "Khoa học": "science",
-            # Trending keywords mapping
-            "công nghệ AI": "technology",
-            "bóng đá việt nam": "sports",
-            "AI trong học đường": "technology",
-            "giá vàng việt nam": "business",
-            "chứng khoán": "business",
-            "AI 2025": "technology",
-            "chatgpt": "technology",
-            "trí tuệ nhân tạo": "technology",
-            "điện thoại mới": "technology",
-            "công nghệ blockchain": "technology",
-            "AI Agent": "technology",
-            "bitcoin": "business",
-            "crypto 2025": "business",
-            "ethereum": "business",
-            "giá bitcoin": "business",
-            "đầu tư crypto": "business",
-            "tour du lịch": "travel",
-            "du lịch việt nam": "travel",
-            "khu du lịch": "travel",
-            "du lịch hè": "travel",
-            "điểm du lịch hot": "travel"
-        }
-        
         api_category = category_map.get(article.get('category', 'Technology'), 'technology')
-        
         return {
             "title": article['title'],
             "slug": article['slug'],

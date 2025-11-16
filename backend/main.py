@@ -74,20 +74,19 @@ def generate_article_job():
         # Sinh nội dung article bằng AI (SYNC - không block main thread vì đang ở thread riêng)
         logger.info(f"🤖 Calling AI to generate content...")
         article_data = gen_news.generate_full_article(keyword)
-        
+        if article_data is None:
+            logger.info(f"⏸️ Không tạo/lưu bài cho keyword '{keyword}' do lỗi Gemini API.")
+            return
         # Tạo document hoàn chỉnh
         now = datetime.utcnow().isoformat() + "Z"
-        
         # Import pymongo sync để insert từ background thread
         from pymongo import MongoClient
         import os
         client = MongoClient(os.getenv("MONGODB_URI"))
         db = client[os.getenv("MONGODB_DB_NAME")]
-        
         # Đếm articles hiện tại
         count = db.articles.count_documents({})
         new_id = count + 1
-        
         article = {
             "_id": str(new_id),
             "title": article_data.get("title", ""),
@@ -111,7 +110,6 @@ def generate_article_job():
             "updatedAt": now,
             "createdAt": now
         }
-        
         # Insert vào MongoDB
         result = db.articles.insert_one(article)
 
@@ -243,7 +241,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         fetch_keywords_job,
         'interval',
-        minutes=30,
+        minutes=3,
         id='fetch_keywords',
         next_run_time=datetime.now(timezone.utc)  # Chạy ngay lập tức
     )
@@ -253,7 +251,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         generate_article_job,
         'interval',
-        seconds=1800,
+        seconds=10,
         id='generate_article'
     )
     logger.info("✅ Scheduler 2: Generate article every 30 secs")

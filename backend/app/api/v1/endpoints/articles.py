@@ -9,7 +9,7 @@ from loguru import logger
 
 from app.models.schemas import (
     ArticleCreate, ArticleUpdate, ArticleResponse, 
-    ArticleAIEnhancement, SchedulePublishRequest
+    ArticleAIEnhancement, SchedulePublishRequest, category_map
 )
 from app.models.schemas import TranslationResponse
 from app.core.database import get_database
@@ -539,21 +539,7 @@ async def get_public_articles(
         mapped_articles = []
         for article in articles:
             # Map category to valid enum (fallback to technology)
-            category_map = {
-                "AI Models": "technology",
-                "Tech Innovations": "technology",
-                "Blockchain": "technology",
-                "Software": "technology",
-                "Healthcare": "health",
-                "Finance": "business",
-                "Economy": "business",
-                "Politics": "politics",
-                "Sports": "sports",
-                "Entertainment": "entertainment",
-                "Science": "science",
-                "World News": "world",
-                "Local News": "local"
-            }
+            # Sử dụng category_map từ schemas.py
             mongo_category = article.get('category', 'Technology')
             api_category = category_map.get(mongo_category, 'technology')
             
@@ -609,21 +595,7 @@ async def get_trending_articles(
         mapped_articles = []
         for article in articles:
             # Map category to valid enum
-            category_map = {
-                "AI Models": "technology",
-                "Tech Innovations": "technology",
-                "Blockchain": "technology",
-                "Software": "technology",
-                "Healthcare": "health",
-                "Finance": "business",
-                "Economy": "business",
-                "Politics": "politics",
-                "Sports": "sports",
-                "Entertainment": "entertainment",
-                "Science": "science",
-                "World News": "world",
-                "Local News": "local"
-            }
+            # Sử dụng category_map từ schemas.py
             mongo_category = article.get('category', 'Technology')
             api_category = category_map.get(mongo_category, 'technology')
             
@@ -720,21 +692,7 @@ async def get_public_article_by_id(article_id: str, db = Depends(get_database)):
         article['view_count'] = article.get('view_count', 0) + 1
 
         # Map category
-        category_map = {
-            "AI Models": "technology",
-            "Tech Innovations": "technology",
-            "Blockchain": "technology",
-            "Software": "technology",
-            "Healthcare": "health",
-            "Finance": "business",
-            "Economy": "business",
-            "Politics": "politics",
-            "Sports": "sports",
-            "Entertainment": "entertainment",
-            "Science": "science",
-            "World News": "world",
-            "Local News": "local"
-        }
+        # Sử dụng category_map từ schemas.py
         mongo_category = article.get('category', 'Technology')
         api_category = category_map.get(mongo_category, 'technology')
 

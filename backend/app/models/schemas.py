@@ -162,6 +162,20 @@ class ArticleResponse(ArticleBase):
 
 # ===================== Translation Schemas =====================
 
+# ===================== Category Map =====================
+category_map = {
+    "AI Models": "AI",
+    "Tech Innovations": "technology",
+    "Blockchain": "Blockchain",
+    "Software": "technology",
+    "Crypto": "Crypto",
+    "NFT": "Crypto",
+    "Genesis Block": "Crypto",
+    "AI trong chụp ảnh": "AI",
+    "AI tạo video": "AI",
+    "Hệ Điều Hành": "technology",
+}
+
 class TranslationRequest(BaseModel):
     article_id: str
     target_language: str = Field(..., pattern="^(en|vi|ja|ko|zh)$")
