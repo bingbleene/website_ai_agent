@@ -226,28 +226,54 @@ class generative_newspaper:
         Returns:
             Dict chứa: title, slug, excerpt, content, category, status, thumbnail, images
         """
-        prompt = f"""Viết một bài viết chi tiết về chủ đề: "{keyword}"
-
-Yêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):
-
-TITLE: [Tiêu đề hấp dẫn 80-100 ký tự]
-SLUG: [url-slug-khong-dau]
-CATEGORY: [Chọn 1 trong: Technology, Business, Health, Travel, Entertainment, Sports, Science, Politics, Lifestyle, Education]
-EXCERPT: [Tóm tắt ngắn 150-200 từ]
-CONTENT:
-[Nội dung chính đầy đủ 1000-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng. 
-Mỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]
-
-Lưu ý:
-- TITLE: Tiêu đề hấp dẫn, thu hút người đọc
-- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)
-- CATEGORY: Phân loại chính xác theo nội dung bài viết
-- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết
-- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng
-- Ngôn ngữ: Tiếng Việt
-- Phong cách: Chuyên nghiệp, dễ hiểu
-
-Bắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
+        # Danh sách category hợp lệ lấy từ category_map
+        category_map = {
+            "AI Models": "technology",
+            "Tech Innovations": "technology", 
+            "Blockchain": "technology",
+            "Software": "technology",
+            "Healthcare": "health",
+            "Finance": "business",
+            "Economy": "business",
+            "Politics": "politics",
+            "Sports": "sports",
+            "Entertainment": "entertainment",
+            "Science": "science",
+            "World News": "world",
+            "Local News": "local",
+            "Technology": "technology",
+            "Công nghệ": "technology",
+            "Kinh tế": "business",
+            "Chính trị": "politics",
+            "Thể thao": "sports",
+            "Giải trí": "entertainment",
+            "Sức khỏe": "health",
+            "Khoa học": "science",
+            # Trending keywords mapping
+            "công nghệ AI": "technology",
+            "bóng đá việt nam": "sports",
+            "AI trong học đường": "technology",
+            "giá vàng việt nam": "business",
+            "chứng khoán": "business",
+            "AI 2025": "technology",
+            "chatgpt": "technology",
+            "trí tuệ nhân tạo": "technology",
+            "điện thoại mới": "technology",
+            "công nghệ blockchain": "technology",
+            "AI Agent": "technology",
+            "bitcoin": "business",
+            "crypto 2025": "business",
+            "ethereum": "business",
+            "giá bitcoin": "business",
+            "đầu tư crypto": "business",
+            "tour du lịch": "travel",
+            "du lịch việt nam": "travel",
+            "khu du lịch": "travel",
+            "du lịch hè": "travel",
+            "điểm du lịch hot": "travel"
+        }
+        valid_categories = list(category_map.keys())
+        prompt = f"""Viết một bài viết chi tiết về chủ đề: '{keyword}'\n\nYêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):\n\nTITLE: [Tiêu đề hấp dẫn 80-100 ký tự]\nSLUG: [url-slug-khong-dau]\nCATEGORY: [Chọn 1 trong các giá trị sau, bắt buộc đúng chính tả, không tự chế: {', '.join(valid_categories)}]\nEXCERPT: [Tóm tắt ngắn 150-200 từ]\nCONTENT:\n[Nội dung chính đầy đủ 1000-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng.\nMỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]\n\nLưu ý:\n- TITLE: Tiêu đề hấp dẫn, thu hút người đọc\n- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)\n- CATEGORY: Phân loại chính xác theo nội dung bài viết, chỉ chọn đúng 1 trong các giá trị trên\n- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết\n- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng\n- Ngôn ngữ: Tiếng Việt\n- Phong cách: Chuyên nghiệp, dễ hiểu\n\nBắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
 
         print(f"🤖 Đang tạo bài viết cho: '{keyword}'", flush=True)
         
@@ -466,7 +492,29 @@ Bắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
             "Thể thao": "sports",
             "Giải trí": "entertainment",
             "Sức khỏe": "health",
-            "Khoa học": "science"
+            "Khoa học": "science",
+            # Trending keywords mapping
+            "công nghệ AI": "technology",
+            "bóng đá việt nam": "sports",
+            "AI trong học đường": "technology",
+            "giá vàng việt nam": "business",
+            "chứng khoán": "business",
+            "AI 2025": "technology",
+            "chatgpt": "technology",
+            "trí tuệ nhân tạo": "technology",
+            "điện thoại mới": "technology",
+            "công nghệ blockchain": "technology",
+            "AI Agent": "technology",
+            "bitcoin": "business",
+            "crypto 2025": "business",
+            "ethereum": "business",
+            "giá bitcoin": "business",
+            "đầu tư crypto": "business",
+            "tour du lịch": "travel",
+            "du lịch việt nam": "travel",
+            "khu du lịch": "travel",
+            "du lịch hè": "travel",
+            "điểm du lịch hot": "travel"
         }
         
         api_category = category_map.get(article.get('category', 'Technology'), 'technology')
