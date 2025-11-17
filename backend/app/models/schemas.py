@@ -1,6 +1,7 @@
 """
 Pydantic Models and Schemas
 """
+
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
@@ -8,6 +9,7 @@ from enum import Enum
 
 
 # ===================== Enums =====================
+
 
 class UserRole(str, Enum):
     ADMIN = "admin"
@@ -34,6 +36,8 @@ class ArticleCategory(str, Enum):
     CRYPTO = "Crypto"
     NFT = "NFT"
     GENESIS_BLOCK = "Genesis Block"
+    AI_MODELS = "AI Models"
+
 
 category_map = {
     "AI Models": "AI",
@@ -48,6 +52,7 @@ category_map = {
     "Hệ Điều Hành": "technology",
 }
 
+
 class SentimentType(str, Enum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
@@ -56,6 +61,7 @@ class SentimentType(str, Enum):
 
 
 # ===================== User Schemas =====================
+
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -86,7 +92,7 @@ class UserResponse(BaseModel):
     commentsCount: Optional[int] = 0
     joinedAt: Optional[str] = None
     lastActive: Optional[str] = None
-    
+
     class Config:
         populate_by_name = True
 
@@ -105,6 +111,7 @@ class TokenResponse(BaseModel):
 
 # ===================== Article Schemas =====================
 
+
 class ArticleBase(BaseModel):
     title: str = Field(..., min_length=10, max_length=200)
     content: str = Field(..., min_length=50)
@@ -113,6 +120,13 @@ class ArticleBase(BaseModel):
     tags: List[str] = []
     featured_image: Optional[str] = None
     language: str = "vi"
+
+    @validator("category", pre=True)
+    def normalize_category(cls, v):
+        # Use category_map to normalize values
+        if v in category_map:
+            return category_map[v]
+        return v
 
 
 class ArticleCreate(ArticleBase):
@@ -131,6 +145,7 @@ class ArticleUpdate(BaseModel):
 
 class ArticleAIEnhancement(BaseModel):
     """AI-generated enhancements for article"""
+
     summary: str
     hashtags: List[str]
     category_suggestion: ArticleCategory
@@ -144,28 +159,28 @@ class ArticleResponse(ArticleBase):
     status: ArticleStatus = ArticleStatus.DRAFT
     author_id: str
     author_name: str
-    
+
     # AI-generated fields
     ai_summary: Optional[str] = None
     ai_hashtags: List[str] = []
     ai_category: Optional[ArticleCategory] = None
     content_warnings: List[str] = []
-    
+
     # Vector for similarity search
     article_vector: Optional[List[float]] = None
-    
+
     # Publishing
     publish_time: Optional[datetime] = None
     published_at: Optional[datetime] = None
-    
+
     # Metrics
     view_count: int = 0
     like_count: int = 0
     comment_count: int = 0
-    
+
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         populate_by_name = True
 
@@ -191,6 +206,7 @@ class TranslationResponse(BaseModel):
 
 # ===================== Comment Schemas =====================
 
+
 class CommentBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
 
@@ -204,19 +220,20 @@ class CommentResponse(CommentBase):
     article_id: str
     user_id: str
     user_name: str
-    
+
     # AI-analyzed sentiment
     sentiment: SentimentType = SentimentType.NEUTRAL
     sentiment_score: float = 0.0
-    
+
     is_flagged: bool = False
     created_at: datetime
-    
+
     class Config:
         populate_by_name = True
 
 
 # ===================== Analytics Schemas =====================
+
 
 class EventType(str, Enum):
     VIEW = "view"
@@ -256,6 +273,7 @@ class DashboardStats(BaseModel):
 
 # ===================== AI Service Schemas =====================
 
+
 class AIGenerateRequest(BaseModel):
     prompt: str
     max_tokens: int = 500
@@ -286,11 +304,12 @@ class RecommendationResponse(BaseModel):
 
 # ===================== Chatbot Schemas =====================
 
+
 class ChatMessage(BaseModel):
     role: Optional[str] = "user"
     type: Optional[str] = None  # For frontend compatibility
     content: str
-    
+
     @validator("role")
     def validate_role(cls, v, values):
         # Handle both role and type fields
@@ -308,7 +327,7 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = None
     message: str
     conversation_history: List[Union[ChatMessage, Dict[str, Any]]] = []
-    
+
     @validator("conversation_history")
     def validate_history(cls, v):
         # Convert each message to proper ChatMessage format
@@ -318,11 +337,11 @@ class ChatRequest(BaseModel):
                 # Handle dictionary format from frontend
                 msg_type = msg.get("type", "user")
                 role = "assistant" if msg_type == "bot" else "user"
-                messages.append(ChatMessage(
-                    role=role,
-                    content=msg.get("content", ""),
-                    type=msg_type
-                ))
+                messages.append(
+                    ChatMessage(
+                        role=role, content=msg.get("content", ""), type=msg_type
+                    )
+                )
             else:
                 messages.append(msg)
         return messages

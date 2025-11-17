@@ -1,46 +1,77 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
-import React from 'react';
+// App.jsx
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useAuthStore } from "./store/authStore";
 
 // Layouts
-import PublicLayout from './layouts/PublicLayout';
-import AdminLayout from './layouts/AdminLayout';
-import Chatbot from './components/public/Chatbot'; // <-- Import đã có
+import PublicLayout from "./layouts/PublicLayout";
+import AdminLayout from "./layouts/AdminLayout";
+import Chatbot from "./components/public/Chatbot";
 
 // Pages
-import Home from './pages/Home';
-import Articles from './pages/Articles';
-import ArticleDetail from './pages/ArticleDetail';
-import Login from './pages/Login';
-import Dashboard from './pages/admin/Dashboard';
-import ArticlesManagement from './pages/admin/ArticlesManagement';
-import ArticleDetailWithLogs from './pages/admin/ArticleDetailWithLogs';
-import CategoriesManagement from './pages/admin/CategoriesManagement';
-import UsersManagement from './pages/admin/UsersManagement';
-import Settings from './pages/admin/Settings';
+import Home from "./pages/Home";
+import Articles from "./pages/Articles";
+import ArticleDetail from "./pages/ArticleDetail";
+import Login from "./pages/Login";
+import Dashboard from "./pages/admin/Dashboard";
+import ArticlesManagement from "./pages/admin/ArticlesManagement";
+import ArticleDetailWithLogs from "./pages/admin/ArticleDetailWithLogs";
+import CategoriesManagement from "./pages/admin/CategoriesManagement";
+import UsersManagement from "./pages/admin/UsersManagement";
+import Settings from "./pages/admin/Settings";
 
-function PrivateRoute({ children }) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? children : <Navigate to="/login" />;
+// Route chỉ cho user đã đăng nhập
+function PrivateRoute({ children, requireAdmin = false }) {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  if (requireAdmin && user?.role !== "admin") {
+    return <Navigate to="/articles" />;
+  }
+
+  return children;
+}
+
+// Route chỉ cho người CHƯA đăng nhập
+function PublicOnlyRoute({ children }) {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated) return children;
+
+  if (user?.role === "admin") return <Navigate to="/admin" />;
+
+  return <Navigate to="/articles" />;
 }
 
 function App() {
   return (
     <BrowserRouter>
-      {/* Routes của bạn sẽ render các trang */}
       <Routes>
-        <Route path="/" element={<PublicLayout />}>
-          <Route index element={<Home />} />
-          <Route path="articles" element={<Articles />} />
-          <Route path="article/:id" element={<ArticleDetail />} />
+        {/* LOGIN: không dùng layout (không có header/footer) */}
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          }
+        />
+
+        {/* PUBLIC: dùng chung PublicLayout (có header/footer) */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/articles" element={<Articles />} />
+          <Route path="/article/:id" element={<ArticleDetail />} />
         </Route>
 
-        <Route path="/login" element={<Login />} />
-
+        {/* ADMIN: layout riêng */}
         <Route
           path="/admin"
           element={
-            <PrivateRoute>
+            <PrivateRoute requireAdmin={true}>
               <AdminLayout />
             </PrivateRoute>
           }
@@ -54,9 +85,7 @@ function App() {
         </Route>
       </Routes>
 
-      {/* 👇 DÒNG QUAN TRỌNG NHẤT LÀ ĐÂY 👇 */}
       <Chatbot />
-
     </BrowserRouter>
   );
 }
