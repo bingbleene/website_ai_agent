@@ -74,24 +74,34 @@ def generate_article_job():
         # Sinh nội dung article bằng AI (SYNC - không block main thread vì đang ở thread riêng)
         logger.info(f"🤖 Calling AI to generate content...")
         article_data = gen_news.generate_full_article(keyword)
-        
+        if article_data is None:
+            logger.info(f"⏸️ Không tạo/lưu bài cho keyword '{keyword}' do lỗi Gemini API.")
+            return
         # Tạo document hoàn chỉnh
         now = datetime.utcnow().isoformat() + "Z"
-        
         # Import pymongo sync để insert từ background thread
         from pymongo import MongoClient
         import os
         client = MongoClient(os.getenv("MONGODB_URI"))
         db = client[os.getenv("MONGODB_DB_NAME")]
-        
+        # Normalize slug/title
+        slug_val = article_data.get("slug", "").strip().lower()
+        title_val = article_data.get("title", "").strip()
+
+        # Duplicate checks: if slug or title already exists, skip insert
+        dup_query = {"$or": [{"slug": slug_val}, {"title": title_val}]}
+        existing = db.articles.find_one(dup_query)
+        if existing:
+            logger.info(f"⏸️ Bỏ qua tạo bài trùng lặp (slug/title tồn tại): {title_val}")
+            return
+
         # Đếm articles hiện tại
         count = db.articles.count_documents({})
         new_id = count + 1
-        
         article = {
             "_id": str(new_id),
             "title": article_data.get("title", ""),
-            "slug": article_data.get("slug", ""),
+            "slug": slug_val,
             "excerpt": article_data.get("excerpt", ""),
             "content": article_data.get("content", ""),
             "categoryId": new_id,
@@ -111,11 +121,107 @@ def generate_article_job():
             "updatedAt": now,
             "createdAt": now
         }
-        
         # Insert vào MongoDB
         result = db.articles.insert_one(article)
+
+        # After creating, push generated alternative angles into queue (limit and dedupe)
+        try:
+            angles = article_data.get('angles', []) if isinstance(article_data, dict) else []
+            if angles:
+                added = 0
+                # Avoid runaway queue: only add if pending < 50 and not in existing
+                for ang in angles:
+                    if len(pending_keywords) >= 50:
+                        break
+                    ang_str = ang.strip()
+                    if ang_str and ang_str not in existing_keywords:
+                        existing_keywords.add(ang_str)
+                        pending_keywords.append(ang_str)
+                        added += 1
+                        logger.info(f"➕ Generated angle queued: {ang_str}")
+                if added:
+                    logger.info(f"✅ Added {added} generated angles to queue")
+        except Exception as _:
+            pass
+
+        # === Auto-translate: try to produce an English version and save under translations.en ===
+        try:
+            from app.services.google_service import google_service, gemini_service
+            import asyncio
+
+            translated = None
+            # Prefer Google Cloud Translation if configured
+            if getattr(google_service, 'translate_client', None):
+                try:
+                    title_trans = asyncio.run(google_service.translate_text(article['title'], target_language='en'))
+                    content_trans = asyncio.run(google_service.translate_text(article['content'], target_language='en'))
+                    excerpt_trans = None
+                    if article.get('excerpt'):
+                        ex_tr = asyncio.run(google_service.translate_text(article.get('excerpt', ''), target_language='en'))
+                        excerpt_trans = ex_tr.get('translated_text')
+
+                    translations = {
+                        'en': {
+                            'title': title_trans.get('translated_text'),
+                            'content': content_trans.get('translated_text'),
+                            'excerpt': excerpt_trans,
+                            'translated_at': datetime.utcnow().isoformat() + 'Z',
+                            'translated_by': 'google'
+                        }
+                    }
+                except Exception as e:
+                    logger.warning(f"⚠️ Auto-translate (Google) failed: {e}")
+                    translations = None
+            else:
+                # Fallback: use Gemini text generation to produce an English translation
+                try:
+                    prompt = f"Translate the following Vietnamese article to English.\n\nTitle: {article['title']}\n\nContent:\n{article['content']}"
+                    translated_text = asyncio.run(gemini_service.generate_text(prompt, max_tokens=2000))
+                    translations = {
+                        'en': {
+                            'title': article['title'],
+                            'content': translated_text,
+                            'excerpt': article.get('excerpt'),
+                            'translated_at': datetime.utcnow().isoformat() + 'Z',
+                            'translated_by': 'gemini'
+                        }
+                    }
+                except Exception as e:
+                    logger.warning(f"⚠️ Auto-translate (Gemini) failed: {e}")
+                    translations = None
+
+            if translations:
+                try:
+                    # Clean and normalize content before saving
+                    try:
+                        from app.services.translation_utils import clean_translated_text
+                        translations['en']['content'] = clean_translated_text(translations['en'].get('content', ''))
+                        # Ensure title/excerpt are simple strings
+                        translations['en']['title'] = translations['en'].get('title', '').strip()
+                        if translations['en'].get('excerpt'):
+                            translations['en']['excerpt'] = translations['en']['excerpt'].strip()
+                    except Exception as _:
+                        # If cleaning fails, continue with raw text
+                        pass
+
+                    # Save English translation into a separate collection `english_trans`, linked by article_id
+                    try:
+                        article_id_str = str(result.inserted_id)
+                        tr_doc = translations['en'].copy()
+                        tr_doc['article_id'] = article_id_str
+                        # Ensure translated_at exists
+                        tr_doc.setdefault('translated_at', datetime.utcnow().isoformat() + 'Z')
+                        db.english_trans.update_one({'article_id': article_id_str}, {'$set': tr_doc}, upsert=True)
+                        logger.info(f"✅ Saved auto-translation into 'english_trans' collection for article ID: {new_id}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to save translation to english_trans collection: {e}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to save translation to DB: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-translate flow failed: {e}")
+
         client.close()
-        
+
         logger.info(f"✅ Created article: {article['title']} (ID: {new_id})")
         logger.info(f"📦 Queue remaining: {len(pending_keywords)}")
         
@@ -166,7 +272,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         fetch_keywords_job,
         'interval',
-        minutes=5,
+        minutes=30,
         id='fetch_keywords',
         next_run_time=datetime.now(timezone.utc)  # Chạy ngay lập tức
     )
@@ -176,7 +282,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         generate_article_job,
         'interval',
-        seconds=10,
+        seconds=300,
         id='generate_article'
     )
     logger.info("✅ Scheduler 2: Generate article every 30 secs")

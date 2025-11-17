@@ -328,7 +328,7 @@ cp .env.example .env
 **Chỉnh sửa `.env`**:
 ```env
 # MongoDB Atlas
-MONGODB_URL=mongodb+srv://user:pass@cluster.mongodb.net/ainews
+MONGODB_URL=mongodb+srv://ai_news_db:Teamnews123@ai-news-cluster.zdmuvnp.mongodb.net/ainews
 
 # JWT Secret
 SECRET_KEY=your-secret-key-min-32-chars

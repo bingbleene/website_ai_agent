@@ -10,18 +10,18 @@ export default function Articles() {
   const [loading, setLoading] = useState(true);
   const [allArticles, setAllArticles] = useState([]);
   const [trendingArticles, setTrendingArticles] = useState([]);
-  const [categories, setCategories] = useState(['All']);
+  const [categories, setCategories] = useState([{ name: 'All', count: null }]);
 
   // Fetch data from backend API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch published articles
         const articlesRes = await articlesAPI.getPublished({ limit: 50 });
         const rawArticles = articlesRes.data || [];
-        
+
         // Map MongoDB fields to frontend format
         const mappedArticles = rawArticles.map(article => ({
           id: article._id || article.id,
@@ -35,9 +35,12 @@ export default function Articles() {
           publishedAt: article.published_at || article.publishedAt || article.created_at,
           author: article.author_name || 'AI News Bot'
         }));
-        
+
+        // Log ra category của tất cả bài viết
+        console.log('Categories from backend:', mappedArticles.map(a => a.category));
+
         setAllArticles(mappedArticles);
-        
+
         // Fetch trending articles
         const trendingRes = await articlesAPI.getTrending(3);
         const rawTrending = trendingRes.data || [];
@@ -50,12 +53,12 @@ export default function Articles() {
           readTime: `${Math.ceil((article.content?.length || 0) / 1000)} min read`,
         }));
         setTrendingArticles(mappedTrending);
-        
+
         // Fetch categories
         const categoriesRes = await articlesAPI.getCategories();
-        const categoryNames = categoriesRes.data.categories?.map(cat => cat.name) || [];
-        setCategories(['All', ...categoryNames]);
-        
+        const rawCategories = categoriesRes.data.categories || [];
+        setCategories([{ name: 'All', count: null }, ...rawCategories]);
+
         setLoading(false);
       } catch (error) {
         console.error('❌ Error fetching articles:', error);
@@ -65,17 +68,26 @@ export default function Articles() {
         setTrendingArticles([]);
       }
     };
-    
+
     fetchData();
   }, []);
 
   // Filter articles
   const filteredArticles = allArticles.filter(article => {
-    const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         article.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || article.category === selectedCategory;
+    const title = (article.title || '').toLowerCase();
+    const excerpt = (article.excerpt || '').toLowerCase();
+    const q = (searchQuery || '').toLowerCase();
+
+    const matchesSearch =
+      !q || title.includes(q) || excerpt.includes(q);
+
+    const matchesCategory =
+      selectedCategory === 'All' ||
+      (article.category || '').trim().toLowerCase() === selectedCategory.trim().toLowerCase();
+
     return matchesSearch && matchesCategory;
   });
+
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
@@ -146,13 +158,15 @@ export default function Articles() {
             }}>
               {categories.map(category => (
                 <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
+                  key={category.name}
+                  onClick={() => setSelectedCategory(category.name)}
                   style={{
                     padding: '0.5rem 1rem',
-                    background: selectedCategory === category ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'white',
-                    color: selectedCategory === category ? 'white' : '#374151',
-                    border: selectedCategory === category ? 'none' : '1px solid #e5e7eb',
+                    background: selectedCategory === category.name
+                      ? 'linear-gradient(135deg, #3b82f6, #2563eb)'
+                      : 'white',
+                    color: selectedCategory === category.name ? 'white' : '#374151',
+                    border: selectedCategory === category.name ? 'none' : '1px solid #e5e7eb',
                     borderRadius: '8px',
                     fontSize: '14px',
                     fontWeight: 600,
@@ -160,7 +174,8 @@ export default function Articles() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  {category}
+                  {category.name}
+                  {category.count !== null && ` (${category.count})`}
                 </button>
               ))}
             </div>
@@ -168,7 +183,7 @@ export default function Articles() {
             {/* Loading State */}
             {loading && (
               <div style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{ 
+                <div style={{
                   display: 'inline-block',
                   width: '40px',
                   height: '40px',
@@ -202,134 +217,134 @@ export default function Articles() {
             {/* Articles Grid */}
             {!loading && filteredArticles.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {filteredArticles.map(article => (
-                <article
-                  key={article._id || article.id}
-                  onClick={() => navigate(`/article/${article._id || article.id}`)}
-                  style={{
-                    background: 'white',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    display: 'grid',
-                    gridTemplateColumns: '300px 1fr',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                  }}
-                >
-                  {/* Image */}
-                  <div style={{
-                    height: '200px',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
-                    <img 
-                      src={article.thumbnail || 'https://via.placeholder.com/300x200?text=No+Image'} 
-                      alt={article.title}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
-                      onError={(e) => {
-                        e.target.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
-                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzM3OTlmZiIvPjwvc3ZnPg==';
-                      }}
-                    />
-                    {article.featured && (
+                {filteredArticles.map(article => (
+                  <article
+                    key={article._id || article.id}
+                    onClick={() => navigate(`/article/${article._id || article.id}`)}
+                    style={{
+                      background: 'white',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      display: 'grid',
+                      gridTemplateColumns: '300px 1fr',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    }}
+                  >
+                    {/* Image */}
+                    <div style={{
+                      height: '200px',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      <img
+                        src={article.thumbnail || 'https://via.placeholder.com/300x200?text=No+Image'}
+                        alt={article.title}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          e.target.style.background = 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
+                          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzM3OTlmZiIvPjwvc3ZnPg==';
+                        }}
+                      />
+                      {article.featured && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '0.75rem',
+                          left: '0.75rem',
+                          background: '#ef4444',
+                          color: 'white',
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}>
+                          <TrendingUp size={14} />
+                          TRENDING
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ padding: '1.5rem' }}>
                       <div style={{
-                        position: 'absolute',
-                        top: '0.75rem',
-                        left: '0.75rem',
-                        background: '#ef4444',
-                        color: 'white',
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.25rem'
+                        gap: '0.75rem',
+                        marginBottom: '0.75rem',
+                        fontSize: '13px'
                       }}>
-                        <TrendingUp size={14} />
-                        TRENDING
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div style={{ padding: '1.5rem' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      marginBottom: '0.75rem',
-                      fontSize: '13px'
-                    }}>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        background: '#eff6ff',
-                        color: '#3b82f6',
-                        borderRadius: '6px',
-                        fontWeight: 600
-                      }}>
-                        {article.category}
-                      </span>
-                      <span style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Calendar size={14} />
-                        {article.published_at ? new Date(article.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                      </span>
-                    </div>
-
-                    <h2 style={{
-                      fontSize: '20px',
-                      fontWeight: 700,
-                      marginBottom: '0.75rem',
-                      color: '#111827'
-                    }}>
-                      {article.title}
-                    </h2>
-
-                    <p style={{
-                      fontSize: '14px',
-                      color: '#6b7280',
-                      marginBottom: '1rem',
-                      lineHeight: 1.6
-                    }}>
-                      {article.excerpt}
-                    </p>
-
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '13px',
-                      color: '#9ca3af'
-                    }}>
-                      <span>By {article.author_name || 'Anonymous'}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Clock size={14} />
-                          {article.read_time || '5 min'}
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          background: '#eff6ff',
+                          color: '#3b82f6',
+                          borderRadius: '6px',
+                          fontWeight: 600
+                        }}>
+                          {article.category}
                         </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <Eye size={14} />
-                          {article.view_count || 0}
+                        <span style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Calendar size={14} />
+                          {article.published_at ? new Date(article.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                         </span>
                       </div>
+
+                      <h2 style={{
+                        fontSize: '20px',
+                        fontWeight: 700,
+                        marginBottom: '0.75rem',
+                        color: '#111827'
+                      }}>
+                        {article.title}
+                      </h2>
+
+                      <p style={{
+                        fontSize: '14px',
+                        color: '#6b7280',
+                        marginBottom: '1rem',
+                        lineHeight: 1.6
+                      }}>
+                        {article.excerpt}
+                      </p>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '13px',
+                        color: '#9ca3af'
+                      }}>
+                        <span>By {article.author_name || 'Anonymous'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Clock size={14} />
+                            {article.read_time || '5 min'}
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Eye size={14} />
+                            {article.view_count || 0}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
             )}
           </div>
 
@@ -425,46 +440,44 @@ export default function Articles() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {categories.slice(1).map(category => {
-                  const count = allArticles.filter(a => a.category === category).length;
-                  return (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '0.75rem',
-                        background: selectedCategory === category ? '#eff6ff' : 'transparent',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.background = '#eff6ff'}
-                      onMouseOut={(e) => e.currentTarget.style.background = selectedCategory === category ? '#eff6ff' : 'transparent'}
-                    >
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#374151'
-                      }}>
-                        {category}
-                      </span>
-                      <span style={{
-                        fontSize: '12px',
-                        color: '#9ca3af',
-                        background: '#f3f4f6',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '6px'
-                      }}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+                {categories.slice(1).map(category => (
+                  <button
+                    key={category.name}
+                    onClick={() => setSelectedCategory(category.name)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.75rem',
+                      background: selectedCategory === category.name ? '#eff6ff' : 'transparent',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = '#eff6ff'}
+                    onMouseOut={(e) => e.currentTarget.style.background =
+                      selectedCategory === category.name ? '#eff6ff' : 'transparent'}
+                  >
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: '#374151'
+                    }}>
+                      {category.name}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#9ca3af',
+                      background: '#f3f4f6',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '6px'
+                    }}>
+                      {category.count}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </aside>

@@ -106,7 +106,7 @@ google_service = GoogleCloudService()
 # ==========================================================
 
 class GeminiService:
-    def __init__(self):
+    def __init__(self, test_model: str = None):
         self.api_key = settings.GEMINI_API_KEY
         self.model = None
         self.model_name = None
@@ -119,92 +119,56 @@ class GeminiService:
         self.max_requests_per_minute = 30
         self.using_fallback = False
         self.last_restart = None
-        
+
         if not self.api_key:
             logger.warning("⚠️ GEMINI_API_KEY is not set")
             return
-            
-        try:
-            genai.configure(api_key=self.api_key)
-            # Chọn model nhẹ nhất có sẵn để tránh hit quota
-            model_preferences = [
-                "gemini-pro",  # Model cơ bản
-                "models/gemini-pro",  # Thử tên đầy đủ
-                "gemini-pro-vision"  # Model dự phòng
-            ]
-            
-            available_models = genai.list_models()
-            models = [m.name for m in available_models]
-            logger.info(f"Available models: {models}")
-            
-            # Chọn model đầu tiên có trong danh sách ưu tiên
-            for preferred_model in model_preferences:
-                if preferred_model in models:
-                    self.model = genai.GenerativeModel(model_name=preferred_model)
-                    self.model_name = preferred_model
-                    logger.info(f"✅ Using model: {preferred_model}")
-                    break
+
+        genai.configure(api_key=self.api_key)
+        available_models = genai.list_models()
+        models = [m.name for m in available_models]
+        logger.info(f"Available models: {models}")
+
+        # Nếu truyền test_model thì chỉ test đúng model đó
+        if test_model:
+            if test_model in models:
+                self.model = genai.GenerativeModel(model_name=test_model)
+                self.model_name = test_model
+                logger.info(f"✅ TESTING model: {test_model}")
             else:
-                # Nếu không tìm thấy model nào, dùng model mặc định
-                self.model = genai.GenerativeModel("gemini-pro")
-                self.model_name = "gemini-pro"
-                logger.info("✅ Using default model: gemini-pro")
-                
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Gemini: {e}")
-            self.model = None
-        
-        if not self.api_key:
-            logger.warning("⚠️ Chưa có GEMINI_API_KEY")
+                logger.error(f"❌ Model '{test_model}' không tồn tại!")
+                self.model = None
+                self.model_name = None
             return
-            
-        try:
-            genai.configure(api_key=self.api_key)
-            
-            # Chọn model nhẹ để tránh hit quota
-            model_preferences = [
-                "gemini-flash-lite-latest",  # Nhẹ nhất
-                "gemini-2.5-flash-lite",
-                "gemini-2.0-flash-lite",
-                "gemini-pro"  # Fallback cuối
-            ]
-            
-            # List models có sẵn
-            try:
-                available_models = genai.list_models()
-                models = [m.name.lower() for m in available_models]
-                logger.info(f"✅ Models có sẵn: {models}")
-                
-                # Chọn model đầu tiên trong danh sách ưu tiên
-                for model_name in model_preferences:
-                    model_name_lower = model_name.lower()
-                    if any(m for m in models if model_name_lower in m):
-                        # Tìm tên model chính xác từ danh sách có sẵn
-                        exact_name = next(m for m in models if model_name_lower in m)
-                        self.model = genai.GenerativeModel(model_name=exact_name)
-                        self.model_name = exact_name
-                        logger.info(f"✅ Dùng model: {exact_name}")
-                        break
-                else:
-                    # Nếu không tìm được model nào, thử dùng API trực tiếp
-                    self.model = genai.GenerativeModel("gemini-pro")
-                    self.model_name = "gemini-pro"
-                    logger.info("✅ Thử dùng model mặc định: gemini-pro")
-            except Exception as e:
-                logger.error(f"❌ Lỗi list models: {e}")
-                # Thử dùng model mặc định
-                try:
-                    self.model = genai.GenerativeModel("gemini-pro")
-                    self.model_name = "gemini-pro"
-                    logger.info("✅ Dùng model mặc định do lỗi list")
-                except Exception as e2:
-                    logger.error(f"❌ Lỗi khởi tạo model mặc định: {e2}")
-                    self.model = None
-                    self.model_name = None
-            
-        except Exception as e:
-            logger.error(f"❌ Lỗi khởi tạo Gemini: {e}")
-            self.model = None
+
+        # Nếu không truyền thì dùng logic cũ: ưu tiên gemini-pro
+        model_preferences = [
+            "gemini-pro",
+            "models/gemini-pro",
+            "gemini-pro-vision"
+        ]
+        for preferred_model in model_preferences:
+            if preferred_model in models:
+                self.model = genai.GenerativeModel(model_name=preferred_model)
+                self.model_name = preferred_model
+                logger.info(f"✅ Using model: {preferred_model}")
+                break
+        else:
+            self.model = genai.GenerativeModel("gemini-pro")
+            self.model_name = "gemini-pro"
+            logger.info("✅ Using default model: gemini-pro")
+
+    def set_model(self, model_name: str):
+        """Thay đổi model AI đang dùng để test từng model."""
+        genai.configure(api_key=self.api_key)
+        available_models = genai.list_models()
+        models = [m.name for m in available_models]
+        if model_name in models:
+            self.model = genai.GenerativeModel(model_name=model_name)
+            self.model_name = model_name
+            logger.info(f"✅ Đã chuyển sang model: {model_name}")
+        else:
+            logger.error(f"❌ Model '{model_name}' không tồn tại!")
 
     async def _run_in_thread(self, sync_func, *args, **kwargs):
         """Hàm helper để chạy code đồng bộ (sync) trong thread."""

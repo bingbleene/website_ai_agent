@@ -51,6 +51,7 @@ export const articlesAPI = {
   // AI enhancements
   enhanceWithAI: (articleId) => api.post(`/ai/enhance-article/${articleId}`),
   translate: (articleId, targetLang) => api.post(`/ai/translate`, { article_id: articleId, target_language: targetLang }),
+  translatePublic: (articleId, targetLang) => api.post(`/articles/public/articles/${articleId}/translate/${targetLang}`),
   schedulePublish: (data) => api.post('/ai/schedule-publish', data),
   
   // PUBLIC endpoints (no auth required)

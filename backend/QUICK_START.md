@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 File `.env` đã được tạo sẵn với cấu hình tối thiểu. Bạn CHỈ CẦN:
 
-1. **MongoDB URI** - ✅ ĐÃ CÓ (mongodb+srv://ngocbich:...)
+1. **MongoDB URI** - ✅ ĐÃ CÓ (mongodb+srv://ai_news_db:Teamnews123@ai-news-cluster.zdmuvnp.mongodb.net/?appName=ai-news-cluster)
 2. **OpenAI API Key** - ✅ ĐÃ CÓ (sk-proj-...)
 
 **Không cần** các API key khác! Hệ thống sẽ tự động dùng fallback:
