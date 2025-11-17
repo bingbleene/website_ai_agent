@@ -1,373 +1,439 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authAPI } from '../services/api';
-import { useAuthStore } from '../store/authStore';
-import { LogIn, Loader, Mail, Lock, Sparkles, AlertCircle, User, Shield } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { authAPI } from "../services/api";
+import { useAuthStore } from "../store/authStore";
+import {
+  Loader,
+  Mail,
+  Lock,
+  AlertCircle,
+  User,
+  Shield,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('user'); // 'user' or 'admin'
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("user");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
-  
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  try {
-    console.log('Sending login request...');
-    // Gửi request lên backend
-    const response = await authAPI.login({
-      email,
-      password
-    });
+    try {
+      console.log("🔹 Sending login request...", { email, role });
 
-    console.log('Login response:', response);
-    console.log('Response data:', response.data);
+      // Backend FastAPI: /auth/login nhận { email, password }
+      const response = await authAPI.login({
+        email,
+        password,
+      });
 
-    // Nếu đăng nhập thành công, lấy user và token từ response
-    const { user, access_token, refresh_token } = response.data;
+      console.log("✅ Login response:", response);
+      console.log("✅ Response.data:", response?.data);
 
-    console.log('Extracted data:', { user, access_token, refresh_token });
+      const { user, access_token, refresh_token } = response.data || {};
 
-    // Lưu vào store
-    setAuth(user, access_token, refresh_token);
+      if (!user || !access_token) {
+        console.error("❌ Missing user or access_token in response");
+        setError("Cannot get user data from server.");
+        setLoading(false);
+        return;
+      }
 
-    console.log('After setAuth, navigating...');
+      console.log("✅ Extracted:", { user, access_token, refresh_token });
 
-    // Chuyển trang theo role
-    if (user.role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/');
+      // LƯU VÀO ZUSTAND (authStore)
+      // setAuth(user, accessToken, refreshToken)
+      setAuth(user, access_token, refresh_token);
+
+      console.log("✅ Store after setAuth:", useAuthStore.getState());
+
+      // Ưu tiên role từ backend, nếu chưa có thì fallback theo ô chọn
+      const finalRole = user.role || role || "user";
+      console.log("Final role:", finalRole);
+
+      if (finalRole === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/articles");
+      }
+    } catch (err) {
+      console.error("❌ Login error:", err);
+
+      // Nếu backend FastAPI trả {"detail": "..."}
+      const backendMessage =
+        err?.response?.data?.detail || err?.message || null;
+
+      setError(
+        backendMessage === "Invalid credentials"
+          ? "Email hoặc mật khẩu không đúng."
+          : backendMessage || "Login failed. Please check your credentials."
+      );
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Login error:', err);
-    setError('Login failed. Please check your credentials.');
-  } finally {
-    setLoading(false);
-  }
-};
-  
+  };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex' }}>
-      {/* Left Side */}
-      <div style={{
-        display: 'none',
-        width: '50%',
-        background: 'linear-gradient(135deg, #3b82f6, #2563eb, #8b5cf6)',
-        padding: '3rem',
-        flexDirection: 'column',
-        justifyContent: 'space-between'
-      }} className="lg-flex">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              background: 'rgba(255,255,255,0.2)',
-              borderRadius: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Sparkles size={28} color="white" />
-            </div>
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'white' }}>AI News Platform</div>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>Powered by Advanced AI</div>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top, #111827 0, #020617 60%, #000 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1rem",
+        color: "#e5e7eb",
+      }}
+    >
+      <div style={{ maxWidth: "420px", width: "100%", textAlign: "center" }}>
+        {/* logo */}
+        <div style={{ marginBottom: "2.5rem" }}>
+          <div
+            style={{
+              width: "90px",
+              height: "90px",
+              margin: "0 auto 1.25rem",
+              borderRadius: "24px",
+              background:
+                "linear-gradient(145deg, rgba(59,130,246,0.25), rgba(56,189,248,0.35))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "68px",
+                height: "68px",
+                borderRadius: "20px",
+                backgroundColor: "#020617",
+                border: "1px solid rgba(148,163,184,0.25)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                color: "#e5e7eb",
+                letterSpacing: "0.15em",
+              }}
+            >
+              <span style={{ fontSize: "22px" }}>AI</span>
+              <span style={{ opacity: 0.8, fontSize: "11px" }}>TODAY</span>
             </div>
           </div>
-          
-          <h1 style={{
-            fontSize: '48px',
-            fontWeight: 700,
-            color: 'white',
-            lineHeight: 1.2,
-            marginBottom: '1.5rem'
-          }}>
-            Welcome Back to<br />the Future of News
-          </h1>
-          <p style={{ fontSize: '20px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
-            Manage your AI-powered news platform with intelligent content generation.
+
+          <p
+            style={{
+              fontSize: "13px",
+              letterSpacing: "0.28em",
+              textTransform: "uppercase",
+              color: "#9ca3af",
+            }}
+          >
+            Daily drops from an AI engineer
           </p>
+
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#9ca3af",
+              marginBottom: "0.75rem",
+            }}
+          >
+            real insights, experiments, tools, and thoughts
+          </p>
+
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#38bdf8",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+            }}
+          >
+            Exclusive Access
+          </span>
         </div>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '1.5rem'
-        }}>
-          {['1000+ Articles', '50+ Categories', '24/7 Support'].map((text, i) => (
-            <div key={i} style={{
-              padding: '1rem',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              textAlign: 'center',
-              fontSize: '14px',
-              color: 'white',
-              fontWeight: 600
-            }}>
-              {text}
+        {/* Login card */}
+        <div
+          style={{
+            backgroundColor: "#020617",
+            borderRadius: "28px",
+            padding: "2rem 1.75rem",
+            boxShadow:
+              "0 20px 70px rgba(0,0,0,0.70), 0 0 0 1px rgba(148,163,184,0.18)",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "21px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.22em",
+              marginBottom: "0.75rem",
+            }}
+          >
+            Welcome Back
+          </h1>
+
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#9ca3af",
+              marginBottom: "1.8rem",
+            }}
+          >
+            Sign in to access exclusive AI insights and newsletter content
+          </p>
+
+          {/* Error */}
+          {error && (
+            <div
+              style={{
+                display: "flex",
+                gap: "0.75rem",
+                padding: "1rem",
+                background: "rgba(248,113,113,0.15)",
+                border: "1px solid rgba(248,113,113,0.3)",
+                borderRadius: "12px",
+                color: "#fecaca",
+                marginBottom: "1.5rem",
+              }}
+            >
+              <AlertCircle size={18} />
+              <span style={{ fontSize: "13px" }}>{error}</span>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
 
-      {/* Right Side - Form */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem',
-        background: '#f9fafb'
-      }}>
-        <div style={{ width: '100%', maxWidth: '448px' }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '24px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
-            padding: '2rem'
-          }}>
-            <div style={{ marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '0.5rem' }}>Sign In</h2>
-              <p style={{ color: '#6b7280' }}>Enter your credentials to access your account</p>
-            </div>
-
-            {error && (
-              <div style={{
-                display: 'flex',
-                gap: '0.75rem',
-                padding: '1rem',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-                color: '#dc2626'
-              }}>
-                <AlertCircle size={20} />
-                <span style={{ fontSize: '14px' }}>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              {/* Role Selection */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  marginBottom: '0.75rem'
-                }}>Login As</label>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '0.75rem'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => setRole('user')}
-                    style={{
-                      padding: '1rem',
-                      border: role === 'user' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
-                      borderRadius: '12px',
-                      background: role === 'user' ? '#eff6ff' : 'white',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      background: role === 'user' ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#f3f4f6',
-                      borderRadius: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <User size={24} color={role === 'user' ? 'white' : '#9ca3af'} />
-                    </div>
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: role === 'user' ? '#3b82f6' : '#6b7280'
-                    }}>
-                      User
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#9ca3af',
-                      textAlign: 'center'
-                    }}>
-                      Browse articles
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setRole('admin')}
-                    style={{
-                      padding: '1rem',
-                      border: role === 'admin' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
-                      borderRadius: '12px',
-                      background: role === 'admin' ? '#eff6ff' : 'white',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      background: role === 'admin' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#f3f4f6',
-                      borderRadius: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Shield size={24} color={role === 'admin' ? 'white' : '#9ca3af'} />
-                    </div>
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: role === 'admin' ? '#3b82f6' : '#6b7280'
-                    }}>
-                      Admin
-                    </div>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#9ca3af',
-                      textAlign: 'center'
-                    }}>
-                      Manage content
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  marginBottom: '0.5rem'
-                }}>Email Address</label>
-                <div style={{ position: 'relative' }}>
-                  <Mail size={20} style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af'
-                  }} />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={role === 'admin' ? 'admin@example.com' : 'user@example.com'}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem 0.75rem 2.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '12px',
-                      fontSize: '16px'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  marginBottom: '0.5rem'
-                }}>Password</label>
-                <div style={{ position: 'relative' }}>
-                  <Lock size={20} style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af'
-                  }} />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem 0.75rem 2.75rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '12px',
-                      fontSize: '16px'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Demo Note */}
-              <div style={{
-                padding: '0.75rem 1rem',
-                background: '#fef3c7',
-                border: '1px solid #fde68a',
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-                fontSize: '13px',
-                color: '#92400e'
-              }}>
-                💡 <strong>Demo Mode:</strong> Enter any email/password to login as {role === 'admin' ? 'Admin' : 'User'}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
+          {/* FORM */}
+          <form onSubmit={handleSubmit}>
+            {/* ROLE SELECT */}
+            <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
+              <label
                 style={{
-                  width: '100%',
-                  padding: '0.875rem',
-                  background: loading ? '#9ca3af' : (role === 'admin' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)'),
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '16px',
+                  display: "block",
+                  marginBottom: "0.6rem",
+                  fontSize: "13px",
                   fontWeight: 600,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s'
                 }}
               >
-                {loading ? (
-                  <>
-                    <Loader size={20} className="animate-spin" />
-                    Signing in as {role}...
-                  </>
-                ) : (
-                  <>
-                    {role === 'admin' ? <Shield size={20} /> : <User size={20} />}
-                    Sign In as {role === 'admin' ? 'Admin' : 'User'}
-                  </>
-                )}
+                Login as
+              </label>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "0.75rem",
+                }}
+              >
+                {/* USER */}
+                <button
+                  type="button"
+                  onClick={() => setRole("user")}
+                  style={{
+                    padding: "1rem",
+                    borderRadius: "14px",
+                    border:
+                      role === "user"
+                        ? "2px solid #3b82f6"
+                        : "2px solid rgba(148,163,184,0.25)",
+                    background:
+                      role === "user" ? "rgba(59,130,246,0.15)" : "#0f172a",
+                    cursor: "pointer",
+                    color: role === "user" ? "#3b82f6" : "#9ca3af",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <User size={24} />
+                  <span>User</span>
+                </button>
+
+                {/* ADMIN */}
+                <button
+                  type="button"
+                  onClick={() => setRole("admin")}
+                  style={{
+                    padding: "1rem",
+                    borderRadius: "14px",
+                    border:
+                      role === "admin"
+                        ? "2px solid #3b82f6"
+                        : "2px solid rgba(148,163,184,0.25)",
+                    background:
+                      role === "admin" ? "rgba(59,130,246,0.15)" : "#0f172a",
+                    cursor: "pointer",
+                    color: role === "admin" ? "#3b82f6" : "#9ca3af",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <Shield size={24} />
+                  <span>Admin</span>
+                </button>
+              </div>
+            </div>
+
+            {/* EMAIL */}
+            <div style={{ marginBottom: "1.25rem", textAlign: "left" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600 }}>
+                Email address
+              </label>
+              <div style={{ position: "relative", marginTop: "0.4rem" }}>
+                <Mail
+                  size={18}
+                  style={{
+                    position: "absolute",
+                    left: "14px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#6b7280",
+                  }}
+                />
+                <input
+                  type="email"
+                  placeholder={
+                    role === "admin" ? "admin@example.com" : "user@example.com"
+                  }
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "0.85rem 1rem 0.85rem 2.75rem",
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    borderRadius: "14px",
+                    color: "#e5e7eb",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* PASSWORD */}
+            <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600 }}>
+                Password
+              </label>
+
+              <div style={{ position: "relative", marginTop: "0.4rem" }}>
+                <Lock
+                  size={18}
+                  style={{
+                    position: "absolute",
+                    left: "14px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#6b7280",
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "14px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "transparent",
+                    border: "none",
+                    color: "#6b7280",
+                    cursor: "pointer",
+                  }}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "0.85rem 2.75rem",
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    borderRadius: "14px",
+                    color: "#e5e7eb",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* REMEMBER + FORGOT */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "1.75rem",
+                fontSize: "13px",
+              }}
+            >
+              <label
+                style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                Remember me
+              </label>
+
+              <button
+                type="button"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#38bdf8",
+                  cursor: "pointer",
+                }}
+              >
+                Forgot password?
               </button>
-            </form>
-          </div>
+            </div>
+
+            {/* SUBMIT */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "0.9rem",
+                borderRadius: "100px",
+                background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                border: "none",
+                color: "#fff",
+                fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize: "15px",
+              }}
+            >
+              {loading ? "Loading..." : `Sign in as ${role}`}
+            </button>
+          </form>
         </div>
       </div>
     </div>
