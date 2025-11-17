@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI News Hub – Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    :root {
+      --bg-page: #f3f4f6;
+      --bg-sidebar: #f9fafb;
+      --bg-card: #ffffff;
+      --bg-footer: #020617;
+      --text-main: #020617;
+      --text-muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: #e0edff;
+      --border-soft: #e5e7eb;
+      --radius-lg: 16px;
+      --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: var(--bg-page);
+      color: var(--text-main);
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    ul {
+      list-style: none;
+    }
+
+    /* ====== TOP NAV ====== */
+    .top-nav {
+      background: #020617;
+      color: #f9fafb;
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .nav-brand {
+      font-weight: 700;
+      font-size: 1.1rem;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-brand img {
+      width: 24px;
+      height: 24px;
+    }
+
+    .nav-search {
+      flex: 1;
+      display: flex;
+      max-width: 520px;
+    }
+
+    .nav-search input {
+      flex: 1;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 999px 0 0 999px;
+      outline: none;
+      font-size: 0.9rem;
+    }
+
+    .nav-search button {
+      border: none;
+      padding: 8px 18px;
+      border-radius: 0 999px 999px 0;
+      background: #22c55e;
+      color: #0f172a;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 0.9rem;
+    }
+
+    .nav-links a {
+      color: #e5e7eb;
+      opacity: 0.9;
+    }
+
+    .nav-links a:hover {
+      opacity: 1;
+    }
+
+    .nav-user {
+      margin-left: 8px;
+      font-size: 0.85rem;
+      color: #cbd5f5;
+    }
+
+    /* ====== PAGE LAYOUT ====== */
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 24px 40px;
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    /* ====== SIDEBAR ====== */
+    .sidebar {
+      width: 240px;
+      background: var(--bg-sidebar);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px 20px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+      position: sticky;
+      top: 72px;
+    }
+
+    .sidebar-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 6px;
+      padding-inline: 8px;
+    }
+
+    .sidebar-nav {
+      margin-bottom: 14px;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      color: #111827;
+      cursor: pointer;
+    }
+
+    .sidebar-item:hover {
+      background: #e5efff;
+      color: #111827;
+    }
+
+    .sidebar-item-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-item-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .sidebar-divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 4px 0 10px;
+    }
+
+    /* ====== MAIN CONTENT GRID ====== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2.4fr) minmax(280px, 1.2fr);
+      gap: 20px;
+    }
+
+    /* ====== HEADER ====== */
+    .articles-header {
+      margin-bottom: 8px;
+    }
+
+    .articles-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-align: center;
+    }
+
+    .articles-subtitle {
+      text-align: center;
+      margin-top: 6px;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .articles-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+
+    .articles-actions span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .articles-actions span:first-child::before {
+      content: "⟳";
+      font-size: 0.8rem;
+    }
+
+    .articles-actions span:last-child::before {
+      content: "⚡";
+      font-size: 0.8rem;
+    }
+
+    /* HERO BANNER ACROSS GRID */
+    .hero-banner {
+      grid-column: 1 / -1;
+      background: #020617;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero-banner img {
+      width: 100%;
+      height: 210px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .hero-events {
+      padding: 8px 18px 12px;
+      font-size: 0.85rem;
+      color: #e5e7eb;
+      background: #020617;
+    }
+
+    .hero-events strong {
+      margin-right: 8px;
+      color: #f9fafb;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.7rem;
+    }
+
+    .hero-events span {
+      margin-right: 8px;
+    }
+
+    .hero-events span + span::before {
+      content: "•";
+      margin: 0 6px;
+      opacity: 0.5;
+    }
+
+    /* LEFT MAIN COLUMN */
+    .main-column {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft);
+      padding: 16px 18px;
+    }
+
+    .feature-latest {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1.2fr);
+      gap: 16px;
+    }
+
+    .feature-card {
+      display: grid;
+      grid-template-columns: 1.2fr 1.8fr;
+      gap: 16px;
+    }
+
+    .feature-image {
+      border-radius: 12px;
+      overflow: hidden;
+      background: #020617;
+    }
+
+    .feature-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .feature-meta {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #059669;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 6px;
+    }
+
+    .feature-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .feature-date {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+
+    .feature-body {
+      font-size: 0.9rem;
+      color: #4b5563;
+      line-height: 1.4;
+    }
+
+    .latest-card h3 {
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .latest-list {
+      margin-top: 6px;
+      border-top: 1px solid var(--border-soft);
+      padding-top: 6px;
+    }
+
+    .latest-item {
+      font-size: 0.85rem;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .latest-item span {
+      display: block;
+      color: #6b7280;
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+
+    /* TRENDING */
+    .trending {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+
+    .trending-label {
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #1d4ed8;
+    }
+
+    /* LATEST GRID */
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .latest-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .news-card {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 10px 10px 12px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.86rem;
+    }
+
+    .news-card img {
+      width: 100%;
+      height: 90px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+
+    .news-tag {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+    }
+
+    .news-title {
+      font-weight: 600;
+    }
+
+    .news-meta {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    /* MID BANNER */
+    .ai-banner-mid {
+      margin: 14px 0;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .ai-banner-mid img {
+      width: 100%;
+      height: 96px;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* CORE / WORLD / POLICY ROW */
+    .sections-row {
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .section-column h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .section-column small {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .section-column ul li {
+      font-size: 0.85rem;
+      padding: 5px 0;
+      border-bottom: 1px solid #f3f4f6;
+      color: #111827;
+    }
+
+    .section-column ul li span {
+      display: block;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    /* RIGHT COLUMN WIDGETS */
+    .side-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .widget {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft);
+      padding: 14px 16px;
+      font-size: 0.87rem;
+    }
+
+    .widget-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .widget small {
+      display: block;
+      font-size: 0.73rem;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+
+    .widget ul li {
+      padding: 4px 0;
+      font-size: 0.83rem;
+      color: #111827;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-size: 0.73rem;
+    }
+
+    .conference-card {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .conference-image {
+      width: 80px;
+      height: 80px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #020617;
+    }
+
+    .conference-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* FOOTER */
+    footer {
+      margin-top: 8px;
+      background: var(--bg-footer);
+      color: #e5e7eb;
+    }
+
+    .footer-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 24px 16px;
+    }
+
+    .footer-top {
+      display: grid;
+      grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+      gap: 32px;
+      border-bottom: 1px solid #111827;
+      padding-bottom: 18px;
+    }
+
+    .footer-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .footer-col ul li {
+      font-size: 0.85rem;
+      padding: 2px 0;
+      color: #d1d5db;
+    }
+
+    .footer-subscribe {
+      margin-top: 18px;
+      background: #000000;
+      border-radius: 999px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .footer-subscribe-text {
+      font-size: 0.88rem;
+    }
+
+    .footer-subscribe-text strong {
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .footer-subscribe-meta {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-top: 3px;
+    }
+
+    .dot-green {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .footer-subscribe-form {
+      display: flex;
+      gap: 8px;
+      flex: 0 0 320px;
+    }
+
+    .footer-subscribe-form input {
+      flex: 1;
+      border-radius: 999px;
+      border: none;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      background: #020617;
+      color: #e5e7eb;
+      outline: none;
+    }
+
+    .footer-subscribe-form button {
+      border-radius: 999px;
+      border: none;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .footer-bottom {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1024px) {
+      .page {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        position: static;
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .sidebar-section-title {
+        flex-basis: 100%;
+      }
+
+      .content-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .hero-banner {
+        grid-column: 1;
+      }
+
+      .feature-latest {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .latest-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .sections-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .top-nav {
+        flex-wrap: wrap;
+        padding: 10px 16px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .page {
+        padding-inline: 16px;
+      }
+
+      .footer-top {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .footer-subscribe {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .footer-subscribe-form {
+        width: 100%;
+        flex: 1;
+      }
+
+      .latest-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- TOP NAV -->
+  <header class="top-nav">
+    <div class="nav-brand">
+      <img src="3d-model_7213818 1.png" alt="AI logo"/>
+      AI News Hub
+    </div>
+
+    <form class="nav-search">
+      <input type="text" placeholder="Search AI news, topics, companies…" />
+      <button type="submit">Search</button>
+    </form>
+
+    <nav class="nav-links">
+      <a href="#">News</a>
+      <a href="#">Categories</a>
+      <a href="#">Insights</a>
+      <a href="#">More</a>
+      <span class="nav-user">test@example.com</span>
+    </nav>
+  </header>
+
+  <main class="page">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section-title">Discover</div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="world-day_7466392 1.png" alt="">
+          </div>
+          <span>Discover</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="technology 1.png" alt="">
+          </div>
+          <span>Core Models &amp; Research</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="settings.png" alt="">
+          </div>
+          <span>Engineering &amp; Tools</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="multimedia_18885348 1.png" alt="">
+          </div>
+          <span>AI in Industries</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="trophy_2158514 1.png" alt="">
+          </div>
+          <span>Products &amp; Startups</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="notary_4104898 1.png" alt="">
+          </div>
+          <span>Policy, Safety &amp; Ethics</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="image 6.png" alt="">
+          </div>
+          <span>Work &amp; Society</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="protection_6512351 1.png" alt="">
+          </div>
+          <span>Climate &amp; Health AI</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="calendar_11811359.png" alt="">
+          </div>
+          <span>Events &amp; Reports</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section-title">Personal</div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="Plus.png" alt="">
+          </div>
+          <span>Follow Topics</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-item-icon">
+            <img src="image 11.png" alt="">
+          </div>
+          <span>Local News</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <section class="main">
+      <header class="articles-header">
+        <h1 class="articles-title">AI NEWS ARTICLES</h1>
+        <p class="articles-subtitle">
+          Discover the latest insights and breakthroughs in artificial intelligence
+        </p>
+        <div class="articles-actions">
+          <span>Refresh</span>
+          <span>AI Sync</span>
+        </div>
+      </header>
+
+      <section class="content-grid">
+        <!-- HERO BANNER -->
+        <section class="hero-banner">
+          <img src="artificial-intelligence-horizontal-banner-template 1.png" alt="AI banner" />
+          <div class="hero-events">
+            <strong>Events:</strong>
+            <span>OPENAI DEV DAY 2025 – GPT-5 RELEASE</span>
+            <span>GOOGLE I/O – GEMINI 2.0 LAUNCH</span>
+            <span>NEURIPS 2025 – AI ETHICS</span>
+          </div>
+        </section>
+
+        <!-- LEFT COLUMN -->
+        <section class="main-column">
+          <!-- FEATURE + LATEST -->
+          <div class="feature-latest">
+            <!-- FEATURE ARTICLE -->
+            <article class="card feature-card">
+              <div class="feature-image">
+                <img src="image 2.png" alt="AI bubble" />
+              </div>
+              <div>
+                <div class="feature-meta">AI in Industries</div>
+                <h2 class="feature-title">
+                  Is AI in a bubble? Succeed despite a market correction
+                </h2>
+                <div class="feature-date">
+                  November 7, 2025 · Policy, Safety &amp; Ethics
+                </div>
+                <p class="feature-body">
+                  Amid pressure to deploy generative and agentic solutions, a familiar
+                  question is resurfacing: “Is there an AI bubble, and is it about
+                  to burst?” For many organisations, this new wave of AI is still
+                  very much in experimental stages, focused on efficiency gains such
+                  as automating workflows or streamlining customer support.
+                </p>
+              </div>
+            </article>
+
+            <!-- LATEST LIST -->
+            <aside class="card latest-card">
+              <h3>Latest news</h3>
+              <div class="latest-list">
+                <div class="latest-item">
+                  How LeapXpert uses AI to bring order and oversight to business messaging
+                  <span>Engineering &amp; Tools · 5 min read</span>
+                </div>
+                <div class="latest-item">
+                  DevOps for AI: Continuous deployment pipelines for machine learning systems
+                  <span>Engineering &amp; Tools · 7 min read</span>
+                </div>
+                <div class="latest-item">
+                  Microsoft’s next big AI bet: building a “humanist superintelligence”
+                  <span>Core AI · 6 min read</span>
+                </div>
+                <div class="latest-item">
+                  Nvidia AI chip ban: can tech giants navigate a geopolitical zero-sum game?
+                  <span>Policy &amp; Geopolitics · 8 min read</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <!-- TRENDING -->
+          <div class="trending">
+            <span class="trending-label">Trending topics</span>
+            <div class="chip-row">
+              <button class="chip active">All</button>
+              <button class="chip">AI Regulation</button>
+              <button class="chip">AI in Life</button>
+              <button class="chip">Big Tech Race</button>
+              <button class="chip">AI Startups</button>
+              <button class="chip">AI in Work</button>
+            </div>
+          </div>
+
+          <!-- LATEST NEWS GRID -->
+          <section>
+            <h2 class="section-title">Latest News</h2>
+            <div class="latest-grid">
+              <article class="news-card">
+                <img src="image 4.png" alt="Microsoft" />
+                <div class="news-tag">Core AI</div>
+                <div class="news-title">
+                  Microsoft’s next big AI bet: building a “humanist superintelligence”
+                </div>
+                <div class="news-meta">Core AI · Nov 7</div>
+              </article>
+
+              <article class="news-card">
+                <img src="image 5.png" alt="Nvidia" />
+                <div class="news-tag">Policy &amp; Ethics</div>
+                <div class="news-title">
+                  Nvidia AI chip ban: can tech giants navigate a zero-sum game?
+                </div>
+                <div class="news-meta">Policy &amp; Ethics · Nov 8</div>
+              </article>
+
+              <article class="news-card">
+                <img src="image 6.png" alt="Keep Calm" />
+                <div class="news-tag">Engineering</div>
+                <div class="news-title">
+                  Keep CALM: New model design could fix high enterprise AI costs
+                </div>
+                <div class="news-meta">Engineering · Nov 10</div>
+              </article>
+
+              <article class="news-card">
+                <img src="image 11.png" alt="Apple Siri" />
+                <div class="news-tag">Products &amp; Startups</div>
+                <div class="news-title">
+                  Apple plans big Siri update with help from Google AI
+                </div>
+                <div class="news-meta">Products &amp; Startups · Nov 7</div>
+              </article>
+            </div>
+          </section>
+
+          <!-- MID BANNER: LIVE THE EXPERIENCE -->
+          <div class="ai-banner-mid">
+            <img src="11117276 1.png" alt="Artificial Intelligence banner" />
+          </div>
+
+          <!-- CORE / IN THE WORLD / PEOPLE & POLICY -->
+          <section class="sections-row">
+            <div class="section-column card">
+              <h3>Core AI</h3>
+              <small>Models &amp; Research</small>
+              <ul>
+                <li>
+                  Baidu ERNIE multimodal AI beats GPT and Gemini in benchmarks
+                  <span>Models &amp; Research · November 10, 2025</span>
+                </li>
+                <li>
+                  Google reveals its own version of Apple’s AI cloud
+                  <span>Engineering &amp; Tools · November 10, 2025</span>
+                </li>
+                <li>
+                  Keep CALM: New model design could fix high enterprise AI costs
+                  <span>Core AI · November 10, 2025</span>
+                </li>
+              </ul>
+            </div>
+
+            <div class="section-column card">
+              <h3>In the World</h3>
+              <small>Use cases by industry</small>
+              <ul>
+                <li>
+                  Thailand becomes one of the first in Asia to get the Sora app
+                  <span>Products &amp; Startups · November 10, 2025</span>
+                </li>
+                <li>
+                  Malaysia launches Ryt Bank, its first AI-powered bank
+                  <span>AI in Life · November 10, 2025</span>
+                </li>
+                <li>
+                  How AI is changing the way we travel
+                  <span>Use cases by industry · November 12, 2025</span>
+                </li>
+              </ul>
+            </div>
+
+            <div class="section-column card">
+              <h3>People &amp; Policy</h3>
+              <small>Policy, Safety &amp; Ethics</small>
+              <ul>
+                <li>
+                  US and Japan announce sweeping AI and tech collaboration
+                  <span>Policy, Safety &amp; Ethics · November 10, 2025</span>
+                </li>
+                <li>
+                  UK and Canada sign AI compute agreement
+                  <span>Policy, Safety &amp; Ethics · November 10, 2025</span>
+                </li>
+                <li>
+                  Tony Blair Institute AI copyright report sparks backlash
+                  <span>Policy, Safety &amp; Ethics · November 10, 2025</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </section>
+
+        <!-- RIGHT COLUMN -->
+        <aside class="side-column">
+          <section class="widget">
+            <h3 class="widget-title">AI Insight</h3>
+            <small>Insight · 4 min read</small>
+            <ul>
+              <li>How will this summit shape future AI policies?</li>
+              <li>Are foundation models the future of AI pipelines?</li>
+              <li>Breaking down what’s shaping the future of AI.</li>
+            </ul>
+          </section>
+
+          <section class="widget">
+            <h3 class="widget-title">AI Timeline</h3>
+            <small>1956 – The Birth of AI</small>
+            <p style="font-size:0.83rem; color:#d1d5db; margin-top:4px;">
+              At Dartmouth College, scientists coined the term “Artificial Intelligence”,
+              sparking a revolution in how machines learn and think.
+            </p>
+          </section>
+
+          <section class="widget conference-card">
+            <div class="conference-image">
+              <img src="image 3.png" alt="HR Tech & AI conference" />
+            </div>
+            <div>
+              <h3 class="widget-title">HR Tech &amp; AI conference</h3>
+              <p style="font-size:0.84rem; color:#e5e7eb;">
+                How AI is reshaping hiring, productivity and employee experience.
+              </p>
+              <span class="badge">Artificial Intelligence · The Experience</span>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-col">
+          <div class="footer-title">ABOUT</div>
+          <p style="font-size:0.84rem; color:#d1d5db;">
+            AI News Hub là nền tảng tin tức AI được vận hành bởi AI Curation Engine.
+            Mission – Team – Contact.
+          </p>
+        </div>
+        <div class="footer-col">
+          <div class="footer-title">EXPLORE</div>
+          <ul>
+            <li>News</li>
+            <li>Categories</li>
+            <li>Insights</li>
+            <li>Resources</li>
+            <li>Events</li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-title">COMMUNITY</div>
+          <ul>
+            <li>LinkedIn</li>
+            <li>Twitter (X)</li>
+            <li>Youtube</li>
+            <li>Discord</li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <div class="footer-title">LEGAL &amp; PREFERENCES</div>
+          <ul>
+            <li>Privacy policy</li>
+            <li>Terms of Use</li>
+            <li>Cookie policy</li>
+            <li>Language – Theme</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-subscribe">
+        <div class="footer-subscribe-text">
+          <strong>Stay Ahead with AI</strong>
+          Get daily insights curated by our AI engine.
+          <div class="footer-subscribe-meta">
+            <span class="dot-green"></span>
+            AI system active – <strong>6 new updates</strong> in the last hour.
+          </div>
+        </div>
+
+        <form class="footer-subscribe-form">
+          <input type="email" placeholder="Enter your mail" />
+          <button type="submit">Subscribe</button>
+        </form>
+      </div>
+
+      <div class="footer-bottom">
+        <span>
+          AI Activity: 1,211 articles indexed – Last updated
+          <span style="color:#22c55e;">8 minutes ago</span>
+        </span>
+        <span>©2025 AI News Hub. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

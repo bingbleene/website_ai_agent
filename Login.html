@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Today – Login</title>
+
+  <style>
+    /* NỀN TỐI TOÀN TRANG */
+    body {
+      margin: 0;
+      padding: 0;
+      background: #020824; /* navy đậm */
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      color: #111827;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 48px;
+      box-sizing: border-box;
+    }
+
+    /* PHẦN LOGO + TEXT BÊN TRÊN */
+    .hero {
+      text-align: center;
+      color: #e5e7eb;
+      margin-bottom: 28px;
+    }
+
+    .hero-logo {
+      width: 110px;
+      height: 110px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .hero-text {
+      max-width: 520px;
+      margin: 0 auto 4px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .hero-tagline {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #22a2ff;
+      font-weight: 600;
+    }
+
+    /* CARD TRẮNG Ở GIỮA */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: #f9fafb;
+      border-radius: 36px;
+      padding: 32px 32px 28px;
+      box-shadow: 0 30px 70px rgba(15, 23, 42, 0.8);
+      box-sizing: border-box;
+      overflow: hidden; /* chặn phần thò ra */
+    }
+
+    .card-title {
+      text-align: center;
+      font-size: 26px;
+      font-weight: 800;
+      margin: 0 0 6px;
+      color: #020617;
+    }
+
+    .card-subtitle {
+      text-align: center;
+      margin: 0 0 24px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: #2563eb;
+    }
+
+    /* FORM */
+    .field-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .input-box {
+      margin-top: 6px;
+      margin-bottom: 18px;
+      position: relative;
+      width: 100%;
+    }
+
+    .card .input-field {
+      display: block;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box;
+      padding: 12px 44px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #d4d4d4;  /* giống màu xám trong hình */
+      font-size: 14px;
+      color: #111827;
+    }
+
+    .input-field::placeholder {
+      color: #9ca3af;
+    }
+
+    .input-icon {
+      position: absolute;
+      top: 9px;
+      left: 12px;
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      opacity: 0.9;
+    }
+
+    .password-eye {
+      position: absolute;
+      top: 9px;
+      right: 12px;
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      cursor: pointer;
+      opacity: 0.9;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 26px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .row a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    .row a:hover {
+      text-decoration: underline;
+    }
+
+    .login-btn {
+      display: block;
+      width: 180px;
+      margin: 0 auto 8px;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #0ea5e9;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5);
+    }
+
+    .login-btn:hover {
+      background: #0284c7;
+    }
+
+    .login-error {
+      text-align: center;
+      font-size: 13px;
+      color: #dc2626;
+      min-height: 18px;
+      margin-bottom: 10px;
+    }
+
+    .divider {
+      margin: 8px 0 10px;
+      border: none;
+      border-top: 1px solid #d1d5db;
+    }
+
+    .signup-text {
+      text-align: center;
+      font-size: 13px;
+      color: #4b5563;
+      margin-bottom: 18px;
+    }
+
+    .signup-text a {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .signup-text a:hover {
+      text-decoration: underline;
+    }
+
+    /* BOX WHAT YOU’LL GET */
+    .benefits-box {
+      margin-top: 4px;
+      background: #e5e7eb;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      color: #111827;
+    }
+
+    .benefits-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .benefits-icon {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      opacity: 0.9;
+    }
+
+    .benefits-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #111827;
+    }
+
+    .benefits-list {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.6;
+    }
+
+    .benefits-list li {
+      color: #111827;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .benefits-list li::marker {
+      color: #111827;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <!-- HERO: LOGO + TEXT TRÊN CÙNG -->
+    <header class="hero">
+      <img src="image/image 16.png" alt="AI Today logo" class="hero-logo" />
+
+      <p class="hero-text">
+        Daily drops from an AI engineer — real insights, experiments, tools,<br />
+        and thoughts
+      </p>
+      <p class="hero-tagline">EXCLUSIVE ACCESS</p>
+    </header>
+
+    <!-- CARD LOGIN -->
+    <main class="card">
+      <h1 class="card-title">WELCOME BACK</h1>
+      <p class="card-subtitle">
+        Sign in to access exclusive AI insights and<br />
+        newsletter content
+      </p>
+
+      <!-- FORM LOGIN -->
+      <form id="login-form">
+        <!-- EMAIL -->
+        <label class="field-label" for="email-input">Email address</label>
+        <div class="input-box">
+          <img src="image/email_7945031.png" class="input-icon" alt="email icon" />
+          <input
+            id="email-input"
+            type="email"
+            class="input-field"
+            placeholder="your@email.com"
+            required
+          />
+        </div>
+
+        <!-- PASSWORD -->
+        <label class="field-label" for="password-input">Password</label>
+        <div class="input-box">
+          <img src="image/lock_7259614.png" class="input-icon" alt="lock icon" />
+          <input
+            id="password-input"
+            type="password"
+            class="input-field"
+            placeholder="Enter your password"
+            required
+          />
+          <img
+            src="image/medical_13739851.png"
+            id="togglePassword"
+            class="password-eye"
+            alt="toggle password"
+          />
+        </div>
+
+        <!-- Remember + Forgot -->
+        <div class="row">
+          <label><input type="checkbox" /> Remember me</label>
+          <a href="#">Forgot password?</a>
+        </div>
+
+        <!-- THÔNG BÁO LỖI -->
+        <p id="login-error" class="login-error"></p>
+
+        <!-- LOGIN BUTTON -->
+        <button type="submit" class="login-btn">Login</button>
+      </form>
+
+      <hr class="divider" />
+
+      <!-- SIGN UP -->
+      <p class="signup-text">
+        Don’t have an account?
+        <a href="#">Create your free account</a>
+      </p>
+
+      <!-- WHAT YOU'LL GET -->
+      <div class="benefits-box">
+        <div class="benefits-header">
+          <img src="image/newspaper_2258840.png" class="benefits-icon" alt="newspaper icon" />
+          <span class="benefits-title">What you'll get:</span>
+        </div>
+        <ul class="benefits-list">
+          <li>Daily AI insights and experiments</li>
+          <li>Latest tools and techniques</li>
+          <li>Exclusive content from AI engineers</li>
+          <li>Real-world applications and case studies</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+
+  <script>
+  const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+
+  // Toggle show/hide password
+  const togglePassword = document.getElementById("togglePassword");
+  const passwordInput = document.getElementById("password-input");
+
+  togglePassword.addEventListener("click", () => {
+    passwordInput.type =
+      passwordInput.type === "password" ? "text" : "password";
+  });
+
+  // Xử lý submit form login
+  const loginForm = document.getElementById("login-form");
+  const errorEl = document.getElementById("login-error");
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorEl.textContent = "";
+
+    const email = document.getElementById("email-input").value.trim();
+    const password = document.getElementById("password-input").value.trim();
+
+    try {
+      // ✅ ĐÚNG PATH BACKEND: /auth/login (có /api/v1 phía trước)
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          errorEl.textContent = "Email hoặc mật khẩu không đúng";
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          errorEl.textContent =
+            errData.detail || "Đăng nhập thất bại. Vui lòng thử lại.";
+        }
+        return;
+      }
+
+      const data = await res.json();
+
+      // ✅ LƯU KEY TRÙNG VỚI DASHBOARD.JS
+      localStorage.setItem("accessToken", data.access_token);
+      localStorage.setItem("refreshToken", data.refresh_token || "");
+      localStorage.setItem(
+        "currentUser",
+        JSON.stringify(data.user || { email })
+      );
+
+      // ✅ Redirect sang trang Dashboard
+      window.location.href = "../Dashboard/Dashboard.html";
+    } catch (err) {
+      console.error(err);
+      errorEl.textContent = "Không kết nối được server. Vui lòng thử lại.";
+    }
+  });
+</script>
+</body>
+</html>
