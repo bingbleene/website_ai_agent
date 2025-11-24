@@ -372,4 +372,4 @@ class GeminiService:
             return "Xin lỗi, có lỗi xảy ra. Vui lòng thử lại sau."
 
 # Tạo một instance để các file khác import và sử dụng
-gemini_service = None
+gemini_service = GeminiService()

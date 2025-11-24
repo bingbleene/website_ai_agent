@@ -54,6 +54,7 @@ class RabbitMQService:
             for queue_key, queue_name in self.queues.items():
                 queue = await self.channel.declare_queue(queue_name, durable=True)
                 
+                # Sửa routing_key để linh hoạt hơn
                 if queue_key == "news_fetching":
                     await queue.bind(self.exchange, routing_key=f"{queue_key}.*")
                 else:
@@ -63,11 +64,7 @@ class RabbitMQService:
             
         except Exception as e:
             logger.error(f"❌ RabbitMQ connection error: {e}")
-            logger.warning("⚠️ Không kết nối được RabbitMQ – chạy local KHÔNG dùng RabbitMQ.")
-            self.connection = None
-            self.channel = None
-            self.enabled = False
-            return
+            raise
     
     async def close(self):
         """Close RabbitMQ connection"""
