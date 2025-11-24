@@ -31,7 +31,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      console.log("🔹 Gửi yêu cầu đăng nhập...", { email, role });
+      console.log("🔹 Sending login request...", { email, role });
 
       // Backend FastAPI: /auth/login nhận { email, password }
       const response = await authAPI.login({
@@ -46,7 +46,7 @@ export default function Login() {
 
       if (!user || !access_token) {
         console.error("❌ Missing user or access_token in response");
-        setError("Không lấy được thông tin người dùng từ máy chủ.");
+        setError("Cannot get user data from server.");
         setLoading(false);
         return;
       }
@@ -78,14 +78,12 @@ export default function Login() {
       setError(
         backendMessage === "Invalid credentials"
           ? "Email hoặc mật khẩu không đúng."
-          : backendMessage || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
+          : backendMessage || "Login failed. Please check your credentials."
       );
     } finally {
       setLoading(false);
     }
   };
-
-  const roleLabel = role === "admin" ? "Quản trị viên" : "Người dùng";
 
   return (
     <div
@@ -145,7 +143,7 @@ export default function Login() {
               color: "#9ca3af",
             }}
           >
-            Bản tin hằng ngày từ một AI engineer
+            Daily drops from an AI engineer
           </p>
 
           <p
@@ -155,7 +153,7 @@ export default function Login() {
               marginBottom: "0.75rem",
             }}
           >
-            Góc nhìn, thử nghiệm, công cụ và suy nghĩ thực tế về AI
+            real insights, experiments, tools, and thoughts
           </p>
 
           <span
@@ -166,7 +164,7 @@ export default function Login() {
               textTransform: "uppercase",
             }}
           >
-            Khu vực đăng nhập riêng
+            Exclusive Access
           </span>
         </div>
 
@@ -189,7 +187,7 @@ export default function Login() {
               marginBottom: "0.75rem",
             }}
           >
-            Chào mừng quay lại
+            Welcome Back
           </h1>
 
           <p
@@ -199,7 +197,7 @@ export default function Login() {
               marginBottom: "1.8rem",
             }}
           >
-            Đăng nhập để truy cập vùng quản lý tin tức và nội dung AI chuyên sâu
+            Sign in to access exclusive AI insights and newsletter content
           </p>
 
           {/* Error */}
@@ -233,7 +231,7 @@ export default function Login() {
                   fontWeight: 600,
                 }}
               >
-                Đăng nhập với vai trò
+                Login as
               </label>
 
               <div
@@ -265,7 +263,7 @@ export default function Login() {
                   }}
                 >
                   <User size={24} />
-                  <span>Người dùng</span>
+                  <span>User</span>
                 </button>
 
                 {/* ADMIN */}
@@ -290,7 +288,7 @@ export default function Login() {
                   }}
                 >
                   <Shield size={24} />
-                  <span>Quản trị viên</span>
+                  <span>Admin</span>
                 </button>
               </div>
             </div>
@@ -298,7 +296,7 @@ export default function Login() {
             {/* EMAIL */}
             <div style={{ marginBottom: "1.25rem", textAlign: "left" }}>
               <label style={{ fontSize: "13px", fontWeight: 600 }}>
-                Địa chỉ email
+                Email address
               </label>
               <div style={{ position: "relative", marginTop: "0.4rem" }}>
                 <Mail
@@ -334,7 +332,7 @@ export default function Login() {
             {/* PASSWORD */}
             <div style={{ marginBottom: "1.5rem", textAlign: "left" }}>
               <label style={{ fontSize: "13px", fontWeight: 600 }}>
-                Mật khẩu
+                Password
               </label>
 
               <div style={{ position: "relative", marginTop: "0.4rem" }}>
@@ -368,7 +366,7 @@ export default function Login() {
 
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Nhập mật khẩu của bạn"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -401,7 +399,7 @@ export default function Login() {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                Ghi nhớ đăng nhập
+                Remember me
               </label>
 
               <button
@@ -413,7 +411,7 @@ export default function Login() {
                   cursor: "pointer",
                 }}
               >
-                Quên mật khẩu?
+                Forgot password?
               </button>
             </div>
 
@@ -433,7 +431,7 @@ export default function Login() {
                 fontSize: "15px",
               }}
             >
-              {loading ? "Đang xử lý..." : `Đăng nhập với tư cách ${roleLabel}`}
+              {loading ? "Loading..." : `Sign in as ${role}`}
             </button>
           </form>
         </div>

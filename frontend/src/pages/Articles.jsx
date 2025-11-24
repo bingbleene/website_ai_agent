@@ -22,21 +22,7 @@ export default function Articles() {
   const [trendingArticles, setTrendingArticles] = useState([]);
   const [categories, setCategories] = useState([{ name: "All", count: null }]);
 
-  // Hàm format thời gian hiển thị: "HH:MM · dd/MM/yyyy"
-  const formatDateTime = (value) => {
-    if (!value) return "N/A";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "N/A";
-    return d.toLocaleString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
-  // Fetch data từ backend API
+  // Fetch data from backend API
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -46,48 +32,40 @@ export default function Articles() {
         const articlesRes = await articlesAPI.getPublished({ limit: 50 });
         const rawArticles = articlesRes.data || [];
 
-        const mappedArticles = rawArticles.map((article) => {
-          const publishedAtRaw =
-            article.published_at || article.publishedAt || article.created_at;
-
-          return {
-            id: article._id || article.id,
-            title: article.title,
-            excerpt: article.excerpt || article.summary || "",
-            content: article.content || "",
-            category: article.category || "Uncategorized",
-            thumbnail:
-              article.featured_image ||
-              article.thumbnail ||
-              "https://via.placeholder.com/800x400?text=No+Image",
-            views: article.view_count || 0,
-            // readTime = thời điểm bài được đăng
-            readTime: formatDateTime(publishedAtRaw),
-            // publishedAt để hiển thị ngày riêng nếu cần
-            publishedAt: publishedAtRaw,
-            author: article.author_name || "AI News Bot",
-          };
-        });
+        const mappedArticles = rawArticles.map((article) => ({
+          id: article._id || article.id,
+          title: article.title,
+          excerpt: article.excerpt || article.summary || "",
+          content: article.content || "",
+          category: article.category || "Uncategorized",
+          thumbnail:
+            article.featured_image ||
+            article.thumbnail ||
+            "https://via.placeholder.com/800x400?text=No+Image",
+          views: article.view_count || 0,
+          readTime: `${Math.ceil(
+            (article.content?.length || 0) / 1000
+          )} min read`,
+          publishedAt:
+            article.published_at || article.publishedAt || article.created_at,
+          author: article.author_name || "AI News Bot",
+        }));
 
         setAllArticles(mappedArticles);
 
         // Trending articles
         const trendingRes = await articlesAPI.getTrending(3);
         const rawTrending = trendingRes.data || [];
-        const mappedTrending = rawTrending.map((article) => {
-          const publishedAtRaw =
-            article.published_at || article.publishedAt || article.created_at;
-
-          return {
-            id: article._id || article.id,
-            title: article.title,
-            excerpt: article.excerpt || article.summary || "",
-            category: article.category || "Tổng hợp",
-            views: article.view_count || 0,
-            readTime: formatDateTime(publishedAtRaw),
-            publishedAt: publishedAtRaw,
-          };
-        });
+        const mappedTrending = rawTrending.map((article) => ({
+          id: article._id || article.id,
+          title: article.title,
+          excerpt: article.excerpt || article.summary || "",
+          category: article.category || "General",
+          views: article.view_count || 0,
+          readTime: `${Math.ceil(
+            (article.content?.length || 0) / 1000
+          )} min read`,
+        }));
         setTrendingArticles(mappedTrending);
 
         // Categories
@@ -149,12 +127,13 @@ export default function Articles() {
               marginBottom: "0.75rem",
             }}
           >
-            BÀI VIẾT AI NEWS
+            AI NEWS ARTICLES
           </h1>
           <p
             style={{ color: "#6b7280", fontSize: "14px", marginBottom: "1rem" }}
           >
-            Khám phá những góc nhìn và xu hướng mới nhất về trí tuệ nhân tạo
+            Discover the latest insights and breakthroughs in artificial
+            intelligence
           </p>
 
           <div
@@ -179,7 +158,7 @@ export default function Articles() {
               }}
             >
               <RefreshCcw size={14} />
-              Làm mới
+              Refresh
             </button>
             <span
               style={{
@@ -189,7 +168,7 @@ export default function Articles() {
               }}
             >
               <Zap size={14} color="#f97316" />
-              Đồng bộ AI
+              AI Sync
             </span>
           </div>
         </header>
@@ -235,7 +214,7 @@ export default function Articles() {
                   }}
                 >
                   <Sparkles size={14} />
-                  Bài viết nổi bật
+                  Featured story
                 </div>
                 <h2
                   style={{
@@ -280,13 +259,13 @@ export default function Articles() {
                     style={{ display: "flex", alignItems: "center", gap: 4 }}
                   >
                     <Eye size={12} />
-                    {heroArticle.views || 0} lượt xem
+                    {heroArticle.views || 0} views
                   </span>
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: "center", color: "#6b7280" }}>
-                Chưa có bài viết nổi bật.
+                No featured article yet.
               </div>
             )}
           </div>
@@ -324,11 +303,7 @@ export default function Articles() {
               {[...Array(2)].map((_, repeatIndex) => (
                 <div
                   key={repeatIndex}
-                  style={{
-                    display: "flex",
-                    gap: "2rem",
-                    alignItems: "center",
-                  }}
+                  style={{ display: "flex", gap: "2rem", alignItems: "center" }}
                 >
                   <span
                     style={{
@@ -342,7 +317,7 @@ export default function Articles() {
                       gap: "0.5rem",
                     }}
                   >
-                    <TrendingUp size={14} /> Đang thịnh hành
+                    <TrendingUp size={14} /> Trending Now
                   </span>
                   {trendingArticles.map((item) => (
                     <span
@@ -355,7 +330,7 @@ export default function Articles() {
                       }}
                       onClick={() => navigate(`/article/${item.id}`)}
                     >
-                      {item.title} · {item.readTime}
+                      {item.title}
                     </span>
                   ))}
                 </div>
@@ -402,7 +377,7 @@ export default function Articles() {
                   </style>
                 </div>
                 <p style={{ marginTop: "1rem", color: "#6b7280" }}>
-                  Đang tải danh sách bài viết...
+                  Loading articles...
                 </p>
               </div>
             )}
@@ -418,8 +393,7 @@ export default function Articles() {
                 }}
               >
                 <p style={{ fontSize: "16px", color: "#6b7280" }}>
-                  Không tìm thấy bài viết phù hợp. Hãy thử từ khóa hoặc bộ lọc
-                  khác.
+                  No articles found. Try different filters.
                 </p>
               </div>
             )}
@@ -525,7 +499,18 @@ export default function Articles() {
                           color: "#9ca3af",
                         }}
                       >
-                        
+                        <span>
+                          {article.publishedAt
+                            ? new Date(article.publishedAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                }
+                              )
+                            : "N/A"}
+                        </span>
                         <div
                           style={{
                             display: "flex",
@@ -589,13 +574,13 @@ export default function Articles() {
                     color: "#111827",
                   }}
                 >
-                  Tin mới nhất
+                  Latest news
                 </h3>
               </div>
 
               {latestArticles.length === 0 && !loading && (
                 <p style={{ fontSize: "13px", color: "#9ca3af" }}>
-                  Chưa có tin mới.
+                  No recent news.
                 </p>
               )}
 
