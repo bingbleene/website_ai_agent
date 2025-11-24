@@ -1,6 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, Eye, Calendar, Share2, Bookmark, TrendingUp, User, ThumbsUp, MessageCircle, Send } from 'lucide-react';
+import {
+  ArrowLeft,
+  Clock,
+  Eye,
+  Calendar,
+  Share2,
+  Bookmark,
+  TrendingUp,
+  User,
+  ThumbsUp,
+  MessageCircle,
+  Send,
+} from 'lucide-react';
 import { articlesAPI } from '../services/api';
 import Chatbot from '../components/public/Chatbot';
 
@@ -15,11 +27,11 @@ export default function ArticleDetail() {
   const [currentLang, setCurrentLang] = useState('vi');
   const [translationsCache, setTranslationsCache] = useState({});
 
-  // Prepare article HTML: move outside useEffect so we can reuse for translations
+  // Chuẩn hóa nội dung HTML bài viết
   const prepareArticleHtml = (rawHtml) => {
     try {
       if (!rawHtml) return '';
-      // Convert lightweight markdown headings (#, ##, ###) to HTML headings
+      // Convert markdown heading sang thẻ HTML
       let normalized = rawHtml;
       normalized = normalized.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
       normalized = normalized.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
@@ -28,21 +40,29 @@ export default function ArticleDetail() {
       const parser = new DOMParser();
       const doc = parser.parseFromString(normalized, 'text/html');
 
-      // If the content looks like plain text (contains newline blocks) convert to structured HTML
       const bodyText = doc.body.textContent || '';
       if (!/<[a-z][\s\S]*>/i.test(normalized) && /\n/.test(bodyText)) {
-        const blocks = normalized.split(/\n{2,}/g).map(b => b.trim()).filter(Boolean);
+        const blocks = normalized
+          .split(/\n{2,}/g)
+          .map((b) => b.trim())
+          .filter(Boolean);
         const container2 = document.createElement('div');
-        // helper to replace bold markers
+
         const replaceBoldInTextNodes = (parent) => {
-          const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT, null, false);
+          const walker = document.createTreeWalker(
+            parent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+          );
           const textNodes = [];
           let node;
-          while (node = walker.nextNode()) {
+          // eslint-disable-next-line no-cond-assign
+          while ((node = walker.nextNode())) {
             textNodes.push(node);
           }
           const boldRegex = /\*\*(.+?)\*\*/g;
-          textNodes.forEach(tn => {
+          textNodes.forEach((tn) => {
             const txt = tn.nodeValue;
             if (!txt) return;
             if (!boldRegex.test(txt)) return;
@@ -50,6 +70,7 @@ export default function ArticleDetail() {
             const frag = document.createDocumentFragment();
             boldRegex.lastIndex = 0;
             let m;
+            // eslint-disable-next-line no-cond-assign
             while ((m = boldRegex.exec(txt)) !== null) {
               const before = txt.slice(lastIndex, m.index);
               if (before) frag.appendChild(document.createTextNode(before));
@@ -64,7 +85,7 @@ export default function ArticleDetail() {
           });
         };
 
-        blocks.forEach(block => {
+        blocks.forEach((block) => {
           const numMatch = block.match(/^\s*(\d+)\.\s*(\s*[\s\S]*)$/s);
           if (numMatch) {
             const marker = document.createElement('div');
@@ -81,11 +102,14 @@ export default function ArticleDetail() {
             return;
           }
 
-          const lines = block.split(/\n+/).map(l => l.trim()).filter(Boolean);
-          const isList = lines.every(l => /^[-*]\s+/.test(l));
+          const lines = block
+            .split(/\n+/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+          const isList = lines.every((l) => /^[-*]\s+/.test(l));
           if (isList) {
             const ul = document.createElement('ul');
-            lines.forEach(l => {
+            lines.forEach((l) => {
               const li = document.createElement('li');
               li.innerHTML = l.replace(/^[-*]\s+/, '');
               ul.appendChild(li);
@@ -108,16 +132,21 @@ export default function ArticleDetail() {
         return container2.innerHTML;
       }
 
-      // Recursively replace **bold** markers inside text nodes
       const replaceBoldInTextNodes = (parent) => {
-        const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT, null, false);
+        const walker = document.createTreeWalker(
+          parent,
+          NodeFilter.SHOW_TEXT,
+          null,
+          false
+        );
         const textNodes = [];
         let node;
-        while (node = walker.nextNode()) {
+        // eslint-disable-next-line no-cond-assign
+        while ((node = walker.nextNode())) {
           textNodes.push(node);
         }
         const boldRegex = /\*\*(.+?)\*\*/g;
-        textNodes.forEach(tn => {
+        textNodes.forEach((tn) => {
           const txt = tn.nodeValue;
           if (!txt) return;
           if (!boldRegex.test(txt)) return;
@@ -125,6 +154,7 @@ export default function ArticleDetail() {
           const frag = document.createDocumentFragment();
           boldRegex.lastIndex = 0;
           let m;
+          // eslint-disable-next-line no-cond-assign
           while ((m = boldRegex.exec(txt)) !== null) {
             const before = txt.slice(lastIndex, m.index);
             if (before) frag.appendChild(document.createTextNode(before));
@@ -139,23 +169,46 @@ export default function ArticleDetail() {
         });
       };
 
-      // Wrap each top-level block into a section.article-section and support markers
       const container = document.createElement('div');
       const children = Array.from(doc.body.childNodes);
 
       const extractMarker = (text) => {
         if (!text) return null;
-        const c = text.match(/^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i);
-        if (c) return { name: c[1], rest: text.replace(/^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i, '') };
+        const c = text.match(
+          /^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i
+        );
+        if (c)
+          return {
+            name: c[1],
+            rest: text.replace(
+              /^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i,
+              ''
+            ),
+          };
         const t = text.match(/^:::\s*([a-zA-Z0-9_-]+)\s*/);
-        if (t) return { name: t[1], rest: text.replace(/^:::\s*([a-zA-Z0-9_-]+)\s*/, '') };
+        if (t)
+          return {
+            name: t[1],
+            rest: text.replace(/^:::\s*([a-zA-Z0-9_-]+)\s*/, ''),
+          };
         const b = text.match(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/);
-        if (b) return { name: b[1], rest: text.replace(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/, '') };
+        if (b)
+          return {
+            name: b[1],
+            rest: text.replace(
+              /^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/,
+              ''
+            ),
+          };
         return null;
       };
 
-      children.forEach(child => {
-        if (child.nodeType === Node.TEXT_NODE && !/\S/.test(child.nodeValue || '')) return;
+      children.forEach((child) => {
+        if (
+          child.nodeType === Node.TEXT_NODE &&
+          !/\S/.test(child.nodeValue || '')
+        )
+          return;
         let markerName = null;
         if (child.nodeType === Node.TEXT_NODE) {
           const em = extractMarker(child.nodeValue);
@@ -171,12 +224,17 @@ export default function ArticleDetail() {
           if (emHtml) {
             markerName = emHtml.name;
             const clone = child.cloneNode(true);
-            clone.innerHTML = clone.innerHTML.replace(/^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i, '');
+            clone.innerHTML = clone.innerHTML.replace(
+              /^<!--\s*class:\s*([a-zA-Z0-9_-]+)\s*-->\s*/i,
+              ''
+            );
             child = clone;
           } else if (emText) {
             markerName = emText.name;
             const clone = child.cloneNode(true);
-            clone.innerHTML = clone.innerHTML.replace(/^:::\s*([a-zA-Z0-9_-]+)\s*/,'').replace(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/, '');
+            clone.innerHTML = clone.innerHTML
+              .replace(/^:::\s*([a-zA-Z0-9_-]+)\s*/, '')
+              .replace(/^\[\[\s*([a-zA-Z0-9_-]+)\s*\]\]\s*/, '');
             child = clone;
           }
         }
@@ -211,7 +269,7 @@ export default function ArticleDetail() {
                 section.insertBefore(marker, p);
               } else if (firstEl.nodeType === Node.ELEMENT_NODE) {
                 const cloned = firstEl.cloneNode(true);
-                cloned.innerHTML = cloned.innerHTML.replace(/^\s*\d+\.\s*/,'');
+                cloned.innerHTML = cloned.innerHTML.replace(/^\s*\d+\.\s*/, '');
                 section.replaceChild(cloned, firstEl);
                 section.insertBefore(marker, cloned);
               }
@@ -221,7 +279,44 @@ export default function ArticleDetail() {
           // ignore
         }
 
-        replaceBoldInTextNodes(section);
+        const replaceBoldInTextNodes2 = (parent) => {
+          const walker = document.createTreeWalker(
+            parent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+          );
+          const textNodes = [];
+          let node2;
+          // eslint-disable-next-line no-cond-assign
+          while ((node2 = walker.nextNode())) {
+            textNodes.push(node2);
+          }
+          const boldRegex = /\*\*(.+?)\*\*/g;
+          textNodes.forEach((tn) => {
+            const txt = tn.nodeValue;
+            if (!txt) return;
+            if (!boldRegex.test(txt)) return;
+            let lastIndex = 0;
+            const frag = document.createDocumentFragment();
+            boldRegex.lastIndex = 0;
+            let m2;
+            // eslint-disable-next-line no-cond-assign
+            while ((m2 = boldRegex.exec(txt)) !== null) {
+              const before = txt.slice(lastIndex, m2.index);
+              if (before) frag.appendChild(document.createTextNode(before));
+              const strong = document.createElement('strong');
+              strong.textContent = m2[1];
+              frag.appendChild(strong);
+              lastIndex = m2.index + m2[0].length;
+            }
+            const rest = txt.slice(lastIndex);
+            if (rest) frag.appendChild(document.createTextNode(rest));
+            tn.parentNode.replaceChild(frag, tn);
+          });
+        };
+
+        replaceBoldInTextNodes2(section);
         container.appendChild(section);
       });
       return container.innerHTML;
@@ -230,25 +325,26 @@ export default function ArticleDetail() {
     }
   };
 
-  // Try to extract a title from translated content (e.g., first <h1> or first line starting with #)
+  // Lấy tiêu đề đầu tiên từ nội dung (khi dịch)
   const extractFirstHeading = (content) => {
     if (!content) return null;
     try {
-      // If content seems like HTML, parse and look for h1/h2
-      if (/</.test(content)) {
+      if (/<[a-z][\s\S]*>/i.test(content)) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(content, 'text/html');
         const h1 = doc.querySelector('h1');
         if (h1 && h1.textContent.trim()) return h1.textContent.trim();
         const h2 = doc.querySelector('h2');
         if (h2 && h2.textContent.trim()) return h2.textContent.trim();
-        // fallback: first paragraph text
         const p = doc.querySelector('p');
-        if (p && p.textContent.trim()) return p.textContent.trim().slice(0, 200);
+        if (p && p.textContent.trim())
+          return p.textContent.trim().slice(0, 200);
       }
 
-      // If plain text, look for a leading '# ' heading or first non-empty line
-      const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const lines = content
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
       if (!lines.length) return null;
       const first = lines[0];
       const md = first.replace(/^#+\s*/, '');
@@ -258,15 +354,16 @@ export default function ArticleDetail() {
     }
   };
 
-  // Generic language change handler: fetch translation (or use cache) and update article.title/content/excerpt
+  // Đổi ngôn ngữ bài viết
   const handleLanguageChange = async (lang) => {
     if (!article && !originalArticle) return;
+
+    // Quay về bản gốc tiếng Việt
     if (lang === 'vi') {
       setCurrentLang('vi');
       if (originalArticle) {
         setArticle(originalArticle);
       } else {
-        // fallback: refetch the article from server
         try {
           setLoading(true);
           const res = await articlesAPI.getPublishedById(id);
@@ -278,14 +375,28 @@ export default function ArticleDetail() {
             content: prepareArticleHtml(found.content || ''),
             category: found.category,
             categoryId: 1,
-            thumbnail: found.featured_image || found.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
+            thumbnail:
+              found.featured_image ||
+              found.thumbnail ||
+              'https://via.placeholder.com/800x400?text=No+Image',
             views: found.view_count || 0,
             likes: found.like_count || 0,
             commentsCount: found.comment_count || 0,
-            readTime: `${Math.ceil((found.content?.length || 0) / 1000)} min read`,
+            // ✅ THAY vì "x phút đọc" → dùng thời điểm đăng bài
+            readTime: new Date(
+              found.published_at || found.publishedAt
+            ).toLocaleString('vi-VN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            }),
             publishedAt: found.published_at || found.publishedAt,
-            author: found.author_name || 'Anonymous',
-            authorAvatar: 'https://ui-avatars.com/api/?name=' + (found.author_name || 'Anonymous').replace(' ', '+')
+            author: found.author_name || 'Ẩn danh',
+            authorAvatar:
+              'https://ui-avatars.com/api/?name=' +
+              (found.author_name || 'Ẩn danh').replace(' ', '+'),
           };
           setArticle(mapped);
           setOriginalArticle(mapped);
@@ -298,55 +409,67 @@ export default function ArticleDetail() {
       return;
     }
 
-    // If cached translated version exists, use it
+    // Đã có cache bản dịch
     if (translationsCache[lang]) {
       setArticle(translationsCache[lang]);
       setCurrentLang(lang);
       return;
     }
 
-    // Otherwise, request translation from backend
+    // Gọi API dịch
     try {
       setTranslateLoading(true);
       const res = await articlesAPI.translatePublic(id, lang);
       const tr = res.data || {};
-      const translatedContent = tr.translated_content || tr.translatedContent || tr.content || tr.translated_text || '';
-      let translatedTitle = tr.translated_title || tr.translatedTitle || tr.title || '';
+      const translatedContent =
+        tr.translated_content ||
+        tr.translatedContent ||
+        tr.content ||
+        tr.translated_text ||
+        '';
+      let translatedTitle =
+        tr.translated_title || tr.translatedTitle || tr.title || '';
       if (!translatedTitle) {
         const h = extractFirstHeading(translatedContent);
         if (h) translatedTitle = h;
       }
-      if (!translatedTitle) translatedTitle = originalArticle?.title || article?.title || '';
-      const translatedExcerpt = tr.translated_summary || tr.translatedSummary || tr.excerpt || originalArticle?.excerpt || article?.excerpt || '';
+      if (!translatedTitle)
+        translatedTitle =
+          originalArticle?.title || article?.title || '';
+      const translatedExcerpt =
+        tr.translated_summary ||
+        tr.translatedSummary ||
+        tr.excerpt ||
+        originalArticle?.excerpt ||
+        article?.excerpt ||
+        '';
 
       const mapped = {
-        ... (originalArticle || article || {}),
+        ...(originalArticle || article || {}),
         title: translatedTitle,
         excerpt: translatedExcerpt,
-        content: prepareArticleHtml(translatedContent)
+        content: prepareArticleHtml(translatedContent),
       };
 
       setArticle(mapped);
-      setTranslationsCache(prev => ({ ...prev, [lang]: mapped }));
+      setTranslationsCache((prev) => ({ ...prev, [lang]: mapped }));
       setCurrentLang(lang);
     } catch (e) {
       console.error('Translation fetch failed', e);
-      alert('Failed to load translation.');
+      alert('Không tải được bản dịch. Vui lòng thử lại sau.');
     } finally {
       setTranslateLoading(false);
     }
   };
-  
-  // Fetch article from backend
+
+  // Fetch bài viết
   useEffect(() => {
     const fetchArticle = async () => {
       try {
         setLoading(true);
-        // Get public article by id (no auth)
         const res = await articlesAPI.getPublishedById(id);
         const foundArticle = res.data;
 
-        // Map fields returned by public endpoint
         const mapped = {
           id: foundArticle._id,
           title: foundArticle.title,
@@ -354,43 +477,67 @@ export default function ArticleDetail() {
           content: prepareArticleHtml(foundArticle.content || ''),
           category: foundArticle.category,
           categoryId: 1,
-          thumbnail: foundArticle.featured_image || foundArticle.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
+          thumbnail:
+            foundArticle.featured_image ||
+            foundArticle.thumbnail ||
+            'https://via.placeholder.com/800x400?text=No+Image',
           views: foundArticle.view_count || 0,
           likes: foundArticle.like_count || 0,
           commentsCount: foundArticle.comment_count || 0,
-          readTime: `${Math.ceil((foundArticle.content?.length || 0) / 1000)} min read`,
+          // ✅ THAY vì "x phút đọc" → dùng thời điểm đăng bài
+          readTime: new Date(
+            foundArticle.published_at || foundArticle.publishedAt
+          ).toLocaleString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
           publishedAt: foundArticle.published_at || foundArticle.publishedAt,
-          author: foundArticle.author_name || 'Anonymous',
-          authorAvatar: 'https://ui-avatars.com/api/?name=' + (foundArticle.author_name || 'Anonymous').replace(' ', '+')
+          author: foundArticle.author_name || 'Ẩn danh',
+          authorAvatar:
+            'https://ui-avatars.com/api/?name=' +
+            (foundArticle.author_name || 'Ẩn danh').replace(' ', '+'),
         };
 
         setArticle(mapped);
         setOriginalArticle(mapped);
 
-        // Fetch related articles (same category)
+        // Bài viết liên quan
         try {
           const relatedRes = await articlesAPI.getPublished({ limit: 10 });
           const allArticles = relatedRes.data || [];
           const related = allArticles
-            .filter(a => a.category === foundArticle.category && a._id !== id)
+            .filter(
+              (a) =>
+                a.category === foundArticle.category && a._id !== id
+            )
             .slice(0, 2)
-            .map(a => ({
+            .map((a) => ({
               id: a._id,
               title: a.title,
               thumbnail: a.featured_image || a.thumbnail,
               category: a.category,
               views: a.view_count || 0,
-              readTime: `${Math.ceil((a.content?.length || 0) / 1000)} min read`,
-              excerpt: a.excerpt || a.summary || ''
+              // ✅ Với bài liên quan: hiện ngày đăng
+              readTime: new Date(
+                a.published_at || a.publishedAt
+              ).toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              }),
+              excerpt: a.excerpt || a.summary || '',
             }));
           setRelatedArticles(related);
         } catch (e) {
-          console.warn('⚠️ Could not fetch related articles', e);
+          console.warn('⚠️ Không thể tải các bài viết liên quan', e);
         }
 
         setLoading(false);
       } catch (error) {
-        console.error('❌ Error fetching article:', error);
+        console.error('❌ Lỗi khi tải bài viết:', error);
         setLoading(false);
         setArticle(null);
       }
@@ -398,33 +545,39 @@ export default function ArticleDetail() {
 
     fetchArticle();
   }, [id]);
-  
-  // Comments state
+
+  // Comments state (mock)
   const [comments, setComments] = useState([
     {
       id: 1,
       author: 'David Park',
-      avatar: 'https://ui-avatars.com/api/?name=David+Park&background=8b5cf6&color=fff',
+      avatar:
+        'https://ui-avatars.com/api/?name=David+Park&background=8b5cf6&color=fff',
       date: '2025-10-26T15:30:00Z',
-      content: 'Great article! The insights on GPT-5 are fascinating. I especially loved the section about multimodal capabilities.',
-      likes: 24
+      content:
+        'Bài viết rất hay! Những insight về GPT-5 thật sự ấn tượng, đặc biệt là phần nói về khả năng đa phương thức.',
+      likes: 24,
     },
     {
       id: 2,
       author: 'Rachel Kim',
-      avatar: 'https://ui-avatars.com/api/?name=Rachel+Kim&background=ec4899&color=fff',
+      avatar:
+        'https://ui-avatars.com/api/?name=Rachel+Kim&background=ec4899&color=fff',
       date: '2025-10-26T18:45:00Z',
-      content: 'This is exactly what I was looking for. The performance benchmarks are impressive!',
-      likes: 15
+      content:
+        'Đúng cái mình đang tìm. Các số liệu so sánh hiệu năng được trình bày rất rõ ràng!',
+      likes: 15,
     },
     {
       id: 3,
       author: 'Tom Wilson',
-      avatar: 'https://ui-avatars.com/api/?name=Tom+Wilson&background=3b82f6&color=fff',
+      avatar:
+        'https://ui-avatars.com/api/?name=Tom+Wilson&background=3b82f6&color=fff',
       date: '2025-10-27T09:20:00Z',
-      content: 'Looking forward to testing GPT-5 in our production environment. Thanks for the detailed analysis!',
-      likes: 8
-    }
+      content:
+        'Rất mong được thử GPT-5 trong môi trường production của bên mình. Cảm ơn bài phân tích chi tiết!',
+      likes: 8,
+    },
   ]);
   const [newComment, setNewComment] = useState('');
 
@@ -432,11 +585,12 @@ export default function ArticleDetail() {
     if (newComment.trim()) {
       const comment = {
         id: comments.length + 1,
-        author: 'You',
-        avatar: 'https://ui-avatars.com/api/?name=You&background=10b981&color=fff',
+        author: 'Bạn',
+        avatar:
+          'https://ui-avatars.com/api/?name=You&background=10b981&color=fff',
         date: new Date().toISOString(),
         content: newComment,
-        likes: 0
+        likes: 0,
       };
       setComments([...comments, comment]);
       setNewComment('');
@@ -446,24 +600,28 @@ export default function ArticleDetail() {
   // Loading state
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f9fafb'
-      }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f9fafb',
+        }}
+      >
         <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '50px',
-            height: '50px',
-            border: '4px solid #e5e7eb',
-            borderTop: '4px solid #3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1rem'
-          }}></div>
-          <p style={{ color: '#6b7280' }}>Loading article...</p>
+          <div
+            style={{
+              width: '50px',
+              height: '50px',
+              border: '4px solid #e5e7eb',
+              borderTop: '4px solid #3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 1rem',
+            }}
+          ></div>
+          <p style={{ color: '#6b7280' }}>Đang tải bài viết...</p>
         </div>
       </div>
     );
@@ -471,16 +629,20 @@ export default function ArticleDetail() {
 
   if (!article) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '1rem'
-      }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '1rem',
+        }}
+      >
         <h1 style={{ fontSize: '48px', color: '#9ca3af' }}>404</h1>
-        <p style={{ fontSize: '18px', color: '#6b7280' }}>Article not found</p>
+        <p style={{ fontSize: '18px', color: '#6b7280' }}>
+          Không tìm thấy bài viết
+        </p>
         <button
           onClick={() => navigate('/articles')}
           style={{
@@ -490,10 +652,10 @@ export default function ArticleDetail() {
             border: 'none',
             borderRadius: '12px',
             fontWeight: 600,
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
-          Back to Articles
+          Quay lại trang bài viết
         </button>
       </div>
     );
@@ -506,12 +668,14 @@ export default function ArticleDetail() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      {/* Header */}
-      <div style={{
-        background: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        padding: '1.5rem 1rem'
-      }}>
+      {/* Header nhỏ trên cùng */}
+      <div
+        style={{
+          background: 'white',
+          borderBottom: '1px solid #e5e7eb',
+          padding: '1.5rem 1rem',
+        }}
+      >
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <button
             onClick={() => navigate('/articles')}
@@ -526,90 +690,102 @@ export default function ArticleDetail() {
               fontWeight: 600,
               cursor: 'pointer',
               padding: '0.5rem',
-              borderRadius: '8px'
+              borderRadius: '8px',
             }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#eff6ff'}
-            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.background = '#eff6ff')
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.background = 'transparent')
+            }
           >
             <ArrowLeft size={16} />
-            Back to Articles
+            Quay lại danh sách bài viết
           </button>
         </div>
       </div>
 
-      {/* Article Content */}
-      <article style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1rem' }}>
-        {/* Meta Info */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap'
-        }}>
-          <span style={{
-            padding: '0.5rem 1rem',
-            background: '#eff6ff',
-            color: '#3b82f6',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: 600
-          }}>
+      {/* Nội dung bài viết */}
+      <article
+        style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 1rem' }}
+      >
+        {/* Thông tin meta */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            marginBottom: '1.5rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#eff6ff',
+              color: '#3b82f6',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
             {article.category}
           </span>
-          <span style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: '#6b7280',
-            fontSize: '14px'
-          }}>
-            <Calendar size={14} />
-            {new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </span>
-          <span style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: '#6b7280',
-            fontSize: '14px'
-          }}>
+
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#6b7280',
+              fontSize: '14px',
+            }}
+          >
             <Clock size={14} />
-            {article.readTime} read
+            {article.readTime}
           </span>
-          <span style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: '#6b7280',
-            fontSize: '14px'
-          }}>
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#6b7280',
+              fontSize: '14px',
+            }}
+          >
             <Eye size={14} />
-            {article.views.toLocaleString()} views
+            {article.views.toLocaleString('vi-VN')} lượt xem
           </span>
         </div>
 
-        {/* Title */}
-        <h1 style={{
-          fontSize: '48px',
-          fontWeight: 800,
-          lineHeight: 1.2,
-          marginBottom: '2rem',
-          color: '#111827'
-        }}>
+        {/* Tiêu đề */}
+        <h1
+          style={{
+            fontSize: '48px',
+            fontWeight: 800,
+            lineHeight: 1.2,
+            marginBottom: '2rem',
+            color: '#111827',
+          }}
+        >
           {article.title}
         </h1>
 
-        {/* Language selector */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        {/* Chọn ngôn ngữ */}
+        <div
+          style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}
+        >
           <button
             onClick={() => handleLanguageChange('vi')}
             style={{
               padding: '0.5rem 0.75rem',
               borderRadius: '8px',
-              border: currentLang === 'vi' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+              border:
+                currentLang === 'vi'
+                  ? '2px solid #3b82f6'
+                  : '1px solid #e5e7eb',
               background: currentLang === 'vi' ? '#eff6ff' : 'white',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             TIẾNG VIỆT
@@ -620,26 +796,31 @@ export default function ArticleDetail() {
             style={{
               padding: '0.5rem 0.75rem',
               borderRadius: '8px',
-              border: currentLang === 'en' ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+              border:
+                currentLang === 'en'
+                  ? '2px solid #3b82f6'
+                  : '1px solid #e5e7eb',
               background: currentLang === 'en' ? '#eff6ff' : 'white',
-              cursor: translateLoading ? 'not-allowed' : 'pointer'
+              cursor: translateLoading ? 'not-allowed' : 'pointer',
             }}
           >
-            {translateLoading ? 'Loading…' : 'ENGLISH'}
+            {translateLoading ? 'Đang tải…' : 'ENGLISH'}
           </button>
         </div>
 
-        {/* Author Info */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '1.5rem',
-          background: 'white',
-          borderRadius: '16px',
-          marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
+        {/* Thông tin tác giả + action */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1.5rem',
+            background: 'white',
+            borderRadius: '16px',
+            marginBottom: '2rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <img
               src={article.authorAvatar}
@@ -647,30 +828,36 @@ export default function ArticleDetail() {
               style={{
                 width: '56px',
                 height: '56px',
-                borderRadius: '50%'
+                borderRadius: '50%',
               }}
             />
             <div>
-              <div style={{
-                fontSize: '16px',
-                fontWeight: 700,
-                color: '#111827',
-                marginBottom: '0.25rem'
-              }}>
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#111827',
+                  marginBottom: '0.25rem',
+                }}
+              >
                 {article.author}
               </div>
-              <div style={{
-                fontSize: '14px',
-                color: '#6b7280'
-              }}>
-                AI Technology Writer
+              <div
+                style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                }}
+              >
+                Tác giả nội dung AI & Công nghệ
               </div>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
-              onClick={() => alert('Share feature coming soon!')}
+              onClick={() =>
+                alert('Tính năng chia sẻ sẽ được cập nhật sau!')
+              }
               style={{
                 width: '40px',
                 height: '40px',
@@ -680,13 +867,15 @@ export default function ArticleDetail() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               <Share2 size={18} color="#374151" />
             </button>
             <button
-              onClick={() => alert('Bookmark feature coming soon!')}
+              onClick={() =>
+                alert('Tính năng lưu bài viết sẽ được cập nhật sau!')
+              }
               style={{
                 width: '40px',
                 height: '40px',
@@ -696,13 +885,13 @@ export default function ArticleDetail() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               <Bookmark size={18} color="#374151" />
             </button>
             <button
-              onClick={() => alert(`You liked this article!`)}
+              onClick={() => alert('Bạn đã thích bài viết này!')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -715,7 +904,7 @@ export default function ArticleDetail() {
                 borderRadius: '8px',
                 fontSize: '14px',
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               <ThumbsUp size={18} />
@@ -724,46 +913,54 @@ export default function ArticleDetail() {
           </div>
         </div>
 
-        {/* Featured Image */}
+        {/* Ảnh đại diện */}
         <img
           src={article.thumbnail}
-          alt="Featured"
+          alt="Ảnh minh họa"
           style={{
             width: '100%',
             height: '400px',
             objectFit: 'cover',
             borderRadius: '16px',
-            marginBottom: '3rem'
+            marginBottom: '3rem',
           }}
-          onError={e => { e.target.src = 'https://via.placeholder.com/800x400?text=No+Image'; }}
+          onError={(e) => {
+            e.target.src =
+              'https://via.placeholder.com/800x400?text=No+Image';
+          }}
         />
 
-        {/* Article Body */}
+        {/* Nội dung chi tiết */}
         <div
           className="article-content"
           dangerouslySetInnerHTML={{ __html: article.content }}
         />
 
-        {/* Related Articles */}
+        {/* Bài viết liên quan */}
         <div style={{ marginTop: '4rem' }}>
-          <h2 style={{
-            fontSize: '28px',
-            fontWeight: 700,
-            marginBottom: '1.5rem',
-            color: '#111827'
-          }}>
-            Related Articles
+          <h2
+            style={{
+              fontSize: '28px',
+              fontWeight: 700,
+              marginBottom: '1.5rem',
+              color: '#111827',
+            }}
+          >
+            Bài viết liên quan
           </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '1.5rem'
-          }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '1.5rem',
+            }}
+          >
             {relatedArticles
               .filter((related) => {
-                const isValid = related && typeof related.excerpt === 'string';
+                const isValid =
+                  related && typeof related.excerpt === 'string';
                 if (!isValid) {
-                  console.warn('⚠️ Invalid related article:', related);
+                  console.warn('⚠️ Bài viết liên quan không hợp lệ:', related);
                 }
                 return isValid;
               })
@@ -780,46 +977,71 @@ export default function ArticleDetail() {
                       overflow: 'hidden',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                       cursor: 'pointer',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+                      e.currentTarget.style.transform =
+                        'translateY(-4px)';
+                      e.currentTarget.style.boxShadow =
+                        '0 12px 24px rgba(0,0,0,0.15)';
                     }}
                     onMouseOut={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                      e.currentTarget.style.boxShadow =
+                        '0 1px 3px rgba(0,0,0,0.1)';
                     }}
                   >
-                    <div style={{
-                      height: '150px',
-                      background: `linear-gradient(135deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})`
-                    }} />
+                    <div
+                      style={{
+                        height: '150px',
+                        background: `linear-gradient(135deg, #${Math.floor(
+                          Math.random() * 16777215
+                        ).toString(16)}, #${Math.floor(
+                          Math.random() * 16777215
+                        ).toString(16)})`,
+                      }}
+                    />
                     <div style={{ padding: '1.5rem' }}>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        background: '#eff6ff',
-                        color: '#3b82f6',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: 600
-                      }}>
+                      <span
+                        style={{
+                          padding: '0.25rem 0.75rem',
+                          background: '#eff6ff',
+                          color: '#3b82f6',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                        }}
+                      >
                         {rel.category}
                       </span>
-                      <h3 style={{
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        margin: '1rem 0',
-                        color: '#111827'
-                      }}>
+                      <h3
+                        style={{
+                          fontSize: '18px',
+                          fontWeight: 700,
+                          margin: '1rem 0',
+                          color: '#111827',
+                        }}
+                      >
                         {rel.title}
                       </h3>
-                      <p style={{
-                        fontSize: '14px',
-                        color: '#6b7280',
-                        lineHeight: 1.5
-                      }}>
+                      <p
+                        style={{
+                          fontSize: '14px',
+                          color: '#6b7280',
+                          lineHeight: 1.5,
+                        }}
+                      >
                         {excerptText}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#9ca3af',
+                          marginTop: '0.75rem',
+                        }}
+                      >
+                        {/* dùng readTime làm ngày đăng */}
+                        Đăng ngày: {rel.readTime}
                       </p>
                     </div>
                   </div>
@@ -828,33 +1050,37 @@ export default function ArticleDetail() {
           </div>
         </div>
 
-        {/* Comments Section */}
+        {/* Khu vực bình luận */}
         <div style={{ marginTop: '4rem' }}>
-          <h2 style={{
-            fontSize: '28px',
-            fontWeight: 700,
-            marginBottom: '1.5rem',
-            color: '#111827',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem'
-          }}>
+          <h2
+            style={{
+              fontSize: '28px',
+              fontWeight: 700,
+              marginBottom: '1.5rem',
+              color: '#111827',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}
+          >
             <MessageCircle size={28} />
-            Comments ({comments.length})
+            Bình luận ({comments.length})
           </h2>
 
-          {/* Add Comment Form */}
-          <div style={{
-            background: 'white',
-            padding: '1.5rem',
-            borderRadius: '16px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            marginBottom: '2rem'
-          }}>
+          {/* Form thêm bình luận */}
+          <div
+            style={{
+              background: 'white',
+              padding: '1.5rem',
+              borderRadius: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              marginBottom: '2rem',
+            }}
+          >
             <textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Share your thoughts about this article..."
+              placeholder="Chia sẻ cảm nghĩ của bạn về bài viết này..."
               style={{
                 width: '100%',
                 minHeight: '100px',
@@ -864,7 +1090,7 @@ export default function ArticleDetail() {
                 fontSize: '14px',
                 fontFamily: 'inherit',
                 resize: 'vertical',
-                marginBottom: '1rem'
+                marginBottom: '1rem',
               }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -876,24 +1102,30 @@ export default function ArticleDetail() {
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.75rem 1.5rem',
-                  background: newComment.trim() ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb',
+                  background: newComment.trim()
+                    ? 'linear-gradient(135deg, #3b82f6, #2563eb)'
+                    : '#e5e7eb',
                   color: newComment.trim() ? 'white' : '#9ca3af',
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '14px',
                   fontWeight: 600,
-                  cursor: newComment.trim() ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.2s'
+                  cursor: newComment.trim()
+                    ? 'pointer'
+                    : 'not-allowed',
+                  transition: 'all 0.2s',
                 }}
               >
                 <Send size={16} />
-                Post Comment
+                Gửi bình luận
               </button>
             </div>
           </div>
 
-          {/* Comments List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Danh sách bình luận */}
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
             {comments.map((comment) => (
               <div
                 key={comment.id}
@@ -901,7 +1133,7 @@ export default function ArticleDetail() {
                   background: 'white',
                   padding: '1.5rem',
                   borderRadius: '16px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                 }}
               >
                 <div style={{ display: 'flex', gap: '1rem' }}>
@@ -912,40 +1144,51 @@ export default function ArticleDetail() {
                       width: '48px',
                       height: '48px',
                       borderRadius: '50%',
-                      flexShrink: 0
+                      flexShrink: 0,
                     }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '0.5rem'
-                    }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '0.5rem',
+                      }}
+                    >
                       <div>
-                        <div style={{
-                          fontSize: '15px',
-                          fontWeight: 700,
-                          color: '#111827'
-                        }}>
+                        <div
+                          style={{
+                            fontSize: '15px',
+                            fontWeight: 700,
+                            color: '#111827',
+                          }}
+                        >
                           {comment.author}
                         </div>
-                        <div style={{
-                          fontSize: '13px',
-                          color: '#6b7280'
-                        }}>
-                          {new Date(comment.date).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
+                        <div
+                          style={{
+                            fontSize: '13px',
+                            color: '#6b7280',
+                          }}
+                        >
+                          {new Date(
+                            comment.date
+                          ).toLocaleDateString('vi-VN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </div>
                       </div>
                       <button
                         onClick={() => {
-                          const updated = comments.map(c =>
-                            c.id === comment.id ? { ...c, likes: c.likes + 1 } : c
+                          const updated = comments.map((c) =>
+                            c.id === comment.id
+                              ? { ...c, likes: c.likes + 1 }
+                              : c
                           );
                           setComments(updated);
                         }}
@@ -961,7 +1204,7 @@ export default function ArticleDetail() {
                           fontWeight: 600,
                           color: '#6b7280',
                           cursor: 'pointer',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
                         }}
                         onMouseOver={(e) => {
                           e.currentTarget.style.background = '#e5e7eb';
@@ -976,11 +1219,13 @@ export default function ArticleDetail() {
                         {comment.likes}
                       </button>
                     </div>
-                    <p style={{
-                      fontSize: '14px',
-                      color: '#374151',
-                      lineHeight: 1.6
-                    }}>
+                    <p
+                      style={{
+                        fontSize: '14px',
+                        color: '#374151',
+                        lineHeight: 1.6,
+                      }}
+                    >
                       {comment.content}
                     </p>
                   </div>
@@ -992,7 +1237,10 @@ export default function ArticleDetail() {
       </article>
 
       {/* AI Chatbot */}
-      <Chatbot articleTitle={article?.title} articleExcerpt={article?.excerpt} />
+      <Chatbot
+        articleTitle={article?.title}
+        articleExcerpt={article?.excerpt}
+      />
     </div>
   );
 }

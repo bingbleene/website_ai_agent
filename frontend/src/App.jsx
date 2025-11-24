@@ -2,6 +2,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
+import LearnMore from "./pages/LearnMore";
 
 // Layouts
 import PublicLayout from "./layouts/PublicLayout";
@@ -65,6 +66,9 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/articles" element={<Articles />} />
           <Route path="/article/:id" element={<ArticleDetail />} />
+
+          {/* ⭐ Thêm Learn More ở đây */}
+          <Route path="/learn-more" element={<LearnMore />} />
         </Route>
 
         {/* ADMIN: layout riêng */}
