@@ -67,11 +67,11 @@ export default function PublicLayout() {
                 color: "#f9fafb",
               }}
             >
-              News Hub
+              Tin tức AI
             </span>
           </Link>
 
-          {/* SEARCH BAR GIỮA (nếu chưa dùng có thể để nguyên) */}
+          {/* SEARCH BAR */}
           <form
             onSubmit={(e) => e.preventDefault()}
             style={{
@@ -87,7 +87,7 @@ export default function PublicLayout() {
           >
             <input
               type="text"
-              placeholder="Search AI news, topics, companies..."
+              placeholder="Tìm kiếm tin tức, chủ đề, công ty liên quan AI..."
               style={{
                 flex: 1,
                 border: "none",
@@ -111,11 +111,11 @@ export default function PublicLayout() {
                 borderRadius: "999px",
               }}
             >
-              Search
+              Tìm kiếm
             </button>
           </form>
 
-          {/* NAV + LOGIN/LOGOUT */}
+          {/* NAVIGATION */}
           <nav
             style={{
               display: "flex",
@@ -134,7 +134,7 @@ export default function PublicLayout() {
                 fontWeight: isActive("/") ? 600 : 500,
               }}
             >
-              Home
+              Trang chủ
             </Link>
 
             <Link
@@ -145,7 +145,7 @@ export default function PublicLayout() {
                 fontWeight: isActive("/articles") ? 600 : 500,
               }}
             >
-              Articles
+              Bài viết
             </Link>
 
             {!isAuthenticated && (
@@ -166,7 +166,7 @@ export default function PublicLayout() {
                   boxShadow: "0 0 0 1px rgba(15,23,42,0.7)",
                 }}
               >
-                <span>Login</span>
+                <span>Đăng nhập</span>
               </Link>
             )}
 
@@ -187,7 +187,7 @@ export default function PublicLayout() {
                       fontWeight: isActive("/admin") ? 600 : 500,
                     }}
                   >
-                    Admin
+                    Quản trị
                   </Link>
                 )}
 
@@ -210,7 +210,7 @@ export default function PublicLayout() {
                     cursor: "pointer",
                   }}
                 >
-                  Logout
+                  Đăng xuất
                 </button>
               </div>
             )}
@@ -266,7 +266,7 @@ export default function PublicLayout() {
               color: "#9ca3af",
             }}
           >
-            Powered by AI for intelligent news curation and delivery.
+            Vận hành bởi AI để chọn lọc và phân phối tin tức thông minh.
           </p>
 
           <div
@@ -329,7 +329,7 @@ export default function PublicLayout() {
               color: "#9ca3af",
             }}
           >
-            © 2025 AI News Management System. All rights reserved.
+            © 2025 Hệ thống quản lý tin tức AI. Đã đăng ký bản quyền.
           </div>
         </div>
       </footer>
