@@ -16,6 +16,7 @@ from app.core.database import get_database
 from app.core.security import get_current_user, get_current_admin_user
 from app.services.google_service import gemini_service
 from app.services.rabbitmq_service import rabbitmq_service
+from app.services.unsplash_service import UnsplashService
 from slugify import slugify
 
 router = APIRouter()
@@ -41,9 +42,36 @@ async def create_article(
         article_dict['like_count'] = 0
         article_dict['comment_count'] = 0
         
-        # Insert to database
+        # Insert to database trước để có ID
         result = await db.articles.insert_one(article_dict)
         article_id = str(result.inserted_id)
+        
+        # Tự động lấy ảnh từ Unsplash và lưu vào collection images
+        if not article_dict.get('thumbnail_url'):
+            try:
+                unsplash = UnsplashService()
+                article_dict['_id'] = article_id
+                
+                # Tạo và lưu ảnh vào collection images
+                image_ids = await unsplash.create_and_save_images_for_article(
+                    article_dict, db, count=3
+                )
+                
+                if image_ids:
+                    # Lấy ảnh primary làm thumbnail_url
+                    primary_image = await db.images.find_one({
+                        "article_id": article_id,
+                        "is_primary": True
+                    })
+                    if primary_image:
+                        # Cập nhật article với thumbnail_url
+                        await db.articles.update_one(
+                            {"_id": result.inserted_id},
+                            {"$set": {"thumbnail_url": primary_image['url']}}
+                        )
+                    logger.info(f"✅ Đã tạo {len(image_ids)} ảnh từ Unsplash cho article {article_id}")
+            except Exception as e:
+                logger.warning(f"⚠️ Không thể lấy ảnh từ Unsplash: {e}")
         
         # Queue AI processing task
         try:

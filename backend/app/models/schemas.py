@@ -119,6 +119,7 @@ class ArticleBase(BaseModel):
     category: ArticleCategory
     tags: List[str] = []
     featured_image: Optional[str] = None
+    thumbnail_url: Optional[str] = None  # URL ảnh thumbnail từ Unsplash
     language: str = "vi"
 
     @validator("category", pre=True)
@@ -140,6 +141,7 @@ class ArticleUpdate(BaseModel):
     category: Optional[ArticleCategory] = None
     tags: Optional[List[str]] = None
     featured_image: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     status: Optional[ArticleStatus] = None
 
 
