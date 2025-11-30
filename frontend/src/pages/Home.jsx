@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Sparkles, Clock, Eye, ArrowRight, Zap, Brain, Rocket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { articlesAPI } from '../services/api';
+import RobotImage from '../assets/Robot.png';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -464,165 +465,355 @@ export default function Home() {
 
   return (
     <div>
-      {/* Hero Section */}
-      <section
-        style={{
-          background: 'linear-gradient(135deg, #3b82f6, #2563eb, #8b5cf6)',
-          color: 'white',
-          padding: '5rem 1rem',
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ maxWidth: '1024px', margin: '0 auto' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 1rem',
-              background: 'rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '999px',
-              marginBottom: '1.5rem',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}
-          >
-            <Sparkles size={16} />
-            <span>Nền tảng tin tức vận hành bởi AI</span>
+      {/* CSS hero + particles + robot */}
+      <style>{`
+        /* ==== HERO SECTION – gradient match AI NEWS HUB ==== */
+        .home-hero {
+          position: relative;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 0% 0%, rgba(96,165,250,0.65) 0%, transparent 55%),
+            radial-gradient(circle at 100% 100%, rgba(244,114,182,0.55) 0%, transparent 55%),
+            linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+          color: #ffffff;
+          padding: 4.75rem 1.5rem 4rem;
+        }
+
+        @media (min-width: 1024px) {
+          .home-hero {
+            padding-top: 5.5rem;
+            padding-bottom: 4.5rem;
+          }
+        }
+
+        .home-hero-particles {
+          position: absolute;
+          inset: -60px;
+          pointer-events: none;
+          opacity: 0.55;
+          mix-blend-mode: screen;
+          background-image:
+            radial-gradient(2px 2px at 10% 20%, rgba(248,250,252,0.9), transparent 60%),
+            radial-gradient(2px 2px at 30% 80%, rgba(219,234,254,0.7), transparent 60%),
+            radial-gradient(2px 2px at 80% 30%, rgba(221,214,254,0.9), transparent 60%),
+            radial-gradient(2px 2px at 60% 65%, rgba(252,231,243,0.9), transparent 60%),
+            radial-gradient(2px 2px at 20% 55%, rgba(248,250,252,0.9), transparent 60%),
+            radial-gradient(2px 2px at 75% 75%, rgba(248,250,252,0.9), transparent 60%),
+            radial-gradient(2px 2px at 45% 35%, rgba(248,250,252,0.9), transparent 60%);
+          background-size: 260px 260px;
+          animation: heroParticles1 26s linear infinite;
+          z-index: 0;
+        }
+
+        .home-hero-particles--2 {
+          opacity: 0.5;
+          background-image:
+            radial-gradient(3px 3px at 15% 10%, rgba(251,146,60,0.9), transparent 60%),
+            radial-gradient(3px 3px at 45% 75%, rgba(96,165,250,0.95), transparent 60%),
+            radial-gradient(3px 3px at 80% 50%, rgba(251,113,133,0.95), transparent 60%),
+            radial-gradient(3px 3px at 55% 20%, rgba(167,139,250,0.95), transparent 60%),
+            radial-gradient(3px 3px at 25% 70%, rgba(52,211,153,0.95), transparent 60%);
+          background-size: 320px 320px;
+          animation: heroParticles2 34s linear infinite;
+        }
+
+        @keyframes heroParticles1 {
+          0%   { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-120px, -60px, 0); }
+        }
+
+        @keyframes heroParticles2 {
+          0%   { transform: translate3d(40px, 20px, 0); }
+          100% { transform: translate3d(-40px, -30px, 0); }
+        }
+
+        .home-hero-inner {
+          position: relative;
+          z-index: 1;
+          max-width: 1100px;
+          margin: 0 auto;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 3rem;
+        }
+
+        .home-hero-left {
+          flex: 1 1 380px;
+          max-width: 560px;
+        }
+
+        .home-kicker-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.45rem 1rem;
+          border-radius: 999px;
+          background: rgba(15,23,42,0.7);
+          border: 1px solid rgba(148,163,184,0.6);
+          backdrop-filter: blur(10px);
+          font-size: 0.78rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          margin-bottom: 1.4rem;
+        }
+
+        .home-kicker-pill span {
+          font-weight: 600;
+          color: #e5e7eb;
+        }
+
+        .home-hero-title {
+          font-weight: 800;
+          font-size: 2.5rem;
+          line-height: 1.15;
+          margin: 0 auto 1.1rem auto;
+          color: #f9fafb;
+          text-shadow: 0 4px 18px rgba(0,0,0,0.7);
+          max-width: 20ch;
+          text-align: center;
+        }
+
+        @media (min-width: 768px) {
+          .home-hero-title {
+            font-size: 3.2rem;
+          }
+        }
+
+        .home-hero-title-highlight {
+          display: inline-block;
+          border-bottom: 4px solid #fb923c;
+          padding-bottom: 4px;
+        }
+
+        .home-hero-subtext {
+          font-size: 0.98rem;
+          color: rgba(226,232,240,0.92);
+          max-width: 32rem;
+          line-height: 1.6;
+          margin: 0 auto 1.8rem auto;
+          text-align: justify;
+          text-align-last: center;
+        }
+
+        .home-hero-ctas {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.85rem;
+          margin-bottom: 2.2rem;
+          justify-content: center;
+        }
+
+        .home-hero-btn {
+          border-radius: 999px;
+          padding: 0.9rem 1.7rem;
+          font-size: 0.95rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          cursor: pointer;
+          border: none;
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            background 0.18s ease,
+            color 0.18s ease;
+        }
+
+        .home-hero-btn-primary {
+          background: #f9fafb;
+          color: #1d4ed8;
+          box-shadow: 0 18px 40px rgba(15,23,42,0.45);
+        }
+
+        .home-hero-btn-primary:hover {
+          transform: translateY(-1px) scale(1.02);
+          box-shadow: 0 22px 55px rgba(15,23,42,0.7);
+        }
+
+        .home-hero-btn-outline {
+          background: transparent;
+          color: #e5e7eb;
+          border: 1px solid rgba(209,213,219,0.6);
+        }
+
+        .home-hero-btn-outline:hover {
+          background: rgba(15,23,42,0.6);
+          transform: translateY(-1px);
+        }
+
+        .home-hero-stats {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1.1rem;
+          justify-content: center;
+        }
+
+        .home-hero-stat-card {
+          min-width: 140px;
+          height: 90px;
+          padding: 0 1.4rem;
+          border-radius: 1rem;
+          background: rgba(15,23,42,0.8);
+          border: 1px solid rgba(148,163,184,0.4);
+          box-shadow: 0 14px 40px rgba(15,23,42,0.7);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+        }
+
+        .home-hero-stat-value {
+          font-size: 1.4rem;
+          font-weight: 700;
+          margin-bottom: 0.25rem;
+        }
+
+        .home-hero-stat-label {
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: rgba(156,163,175,0.95);
+        }
+
+        .home-hero-robot-wrapper {
+          flex: 1 1 320px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .home-hero-robot-circle {
+          position: relative;
+          width: 340px;
+          height: 340px;
+          border-radius: 999px;
+          background:
+            radial-gradient(circle at 30% 15%, rgba(248,250,252,0.18), transparent 55%),
+            radial-gradient(circle at 75% 80%, rgba(251,113,133,0.35), transparent 60%),
+            radial-gradient(circle at 10% 80%, rgba(52,211,153,0.25), transparent 60%),
+            #020617;
+          box-shadow:
+            0 0 0 1px rgba(148,163,184,0.4),
+            0 40px 120px rgba(15,23,42,0.9),
+            0 0 80px rgba(56,189,248,0.5);
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        @media (min-width: 1024px) {
+          .home-hero-robot-circle {
+            width: 380px;
+            height: 380px;
+          }
+        }
+
+        .home-hero-robot-image {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          transform: translateY(8px);
+          filter: drop-shadow(0 24px 40px rgba(15,23,42,0.85));
+        }
+
+        .home-hero-robot-caption {
+          font-size: 0.8rem;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+
+          /* màu + độ tương phản mạnh hơn */
+          color: #f9fafb;
+          text-shadow: 0 0 12px rgba(15, 23, 42, 0.9);
+
+          /* làm thành pill nổi trên nền gradient */
+          background: rgba(15, 23, 42, 0.55);
+          padding: 0.45rem 1.1rem;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+
+          /* căn giữa đẹp hơn một chút */
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+      `}</style>
+
+      {/* HERO SECTION – robot + particles toàn khu vực */}
+      <section className="home-hero">
+        <div className="home-hero-particles" />
+        <div className="home-hero-particles home-hero-particles--2" />
+
+        <div className="home-hero-inner">
+          {/* LEFT: Text */}
+          <div className="home-hero-left">
+            <div className="home-kicker-pill">
+              <Sparkles size={16} />
+              <span>Nền tảng tin tức vận hành bởi AI</span>
+            </div>
+
+            <h1 className="home-hero-title">
+              Kỷ nguyên{' '}
+              <span className="home-hero-title-highlight">tin tức trí tuệ nhân tạo</span>{' '}
+              dành riêng cho bạn
+            </h1>
+
+            <p className="home-hero-subtext">
+              AI phân tích hàng nghìn nguồn tin mỗi ngày để chọn lọc những câu chuyện,
+              xu hướng và phân tích quan trọng nhất về AI, machine learning và công
+              nghệ – phù hợp với mối quan tâm của bạn.
+            </p>
+
+            <div className="home-hero-ctas">
+              <button
+                className="home-hero-btn home-hero-btn-primary"
+                onClick={() =>
+                  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                }
+              >
+                Khám phá bài viết
+                <ArrowRight size={18} />
+              </button>
+              <button
+                className="home-hero-btn home-hero-btn-outline"
+                onClick={() => navigate('/articles')}
+              >
+                Xem tin mới nhất
+              </button>
+            </div>
+
+            <div className="home-hero-stats">
+              <div className="home-hero-stat-card">
+                <div className="home-hero-stat-value">1000+</div>
+                <div className="home-hero-stat-label">Bài viết</div>
+              </div>
+              <div className="home-hero-stat-card">
+                <div className="home-hero-stat-value">50+</div>
+                <div className="home-hero-stat-label">Chủ đề</div>
+              </div>
+              <div className="home-hero-stat-card">
+                <div className="home-hero-stat-value">24/7</div>
+                <div className="home-hero-stat-label">Cập nhật liên tục</div>
+              </div>
+            </div>
           </div>
 
-          <h1
-            style={{
-              fontSize: '56px',
-              fontWeight: 800,
-              marginBottom: '1.5rem',
-              lineHeight: 1.2,
-            }}
-          >
-            Dẫn đầu xu hướng với tin tức được chọn lọc bởi AI
-          </h1>
-
-          <p
-            style={{
-              fontSize: '20px',
-              color: 'rgba(255,255,255,0.9)',
-              maxWidth: '600px',
-              margin: '0 auto 2rem',
-            }}
-          >
-            Khám phá những góc nhìn mới nhất về trí tuệ nhân tạo, machine learning và
-            công nghệ. Nội dung được AI sàng lọc để luôn phù hợp với bạn.
-          </p>
-
-          <div
-            style={{
-              display: 'flex',
-              gap: '1rem',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <button
-              onClick={() =>
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-              }
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '1rem 2rem',
-                background: 'white',
-                color: '#3b82f6',
-                border: 'none',
-                borderRadius: '12px',
-                fontSize: '16px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'transform 0.2s',
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-              onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-            >
-              Khám phá bài viết
-              <ArrowRight size={20} />
-            </button>
-            <button
-              onClick={() => navigate('/learn-more')}
-              style={{
-                padding: '1rem 2rem',
-                background: 'rgba(255,255,255,0.1)',
-                color: 'white',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: '12px',
-                fontSize: '16px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'transform 0.2s',
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-              onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-            >
-              Tìm hiểu thêm
-            </button>
-          </div>
-
-          {/* Stats */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '1.5rem',
-              maxWidth: '600px',
-              margin: '4rem auto 0',
-            }}
-          >
-            <div
-              style={{
-                padding: '1.5rem',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.2)',
-              }}
-            >
-              <div style={{ fontSize: '32px', fontWeight: 700, marginBottom: '0.25rem' }}>
-                1000+
-              </div>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
-                Bài viết
-              </div>
+          {/* RIGHT: Robot */}
+          <div className="home-hero-robot-wrapper">
+            <div className="home-hero-robot-circle">
+              <img
+                src={RobotImage}
+                alt="AI robot chọn lọc tin tức"
+                className="home-hero-robot-image"
+              />
             </div>
-            <div
-              style={{
-                padding: '1.5rem',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.2)',
-              }}
-            >
-              <div style={{ fontSize: '32px', fontWeight: 700, marginBottom: '0.25rem' }}>
-                50+
-              </div>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
-                Chủ đề
-              </div>
-            </div>
-            <div
-              style={{
-                padding: '1.5rem',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,255,255,0.2)',
-              }}
-            >
-              <div style={{ fontSize: '32px', fontWeight: 700, marginBottom: '0.25rem' }}>
-                24/7
-              </div>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
-                Cập nhật liên tục
-              </div>
-            </div>
+            <div className="home-hero-robot-caption">AI chọn lọc tin tức 24/7</div>
           </div>
         </div>
       </section>
@@ -780,7 +971,6 @@ export default function Home() {
         }}
       >
         <div style={{ maxWidth: '1024px', margin: '0 auto' }}>
-          {/* Header – chỉ title, căn giữa và làm nổi bật */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h2
               style={{
@@ -797,7 +987,6 @@ export default function Home() {
             </h2>
           </div>
 
-          {/* Nếu đang load hoặc không có bài */}
           {hubLoading || !mainArticle ? (
             <div
               style={{
@@ -1000,7 +1189,6 @@ export default function Home() {
                           '0 14px 32px rgba(15,23,42,0.5)';
                       }}
                     >
-                      {/* Background image */}
                       <div
                         style={{
                           position: 'absolute',
@@ -1010,8 +1198,6 @@ export default function Home() {
                           backgroundPosition: 'center',
                         }}
                       />
-
-                      {/* Overlay làm tối mạnh hơn để chữ nổi */}
                       <div
                         style={{
                           position: 'absolute',
@@ -1020,8 +1206,6 @@ export default function Home() {
                             'linear-gradient(180deg, rgba(15,23,42,0.85), rgba(15,23,42,0.45))',
                         }}
                       />
-
-                      {/* Content - căn giữa theo chiều dọc */}
                       <div
                         style={{
                           position: 'relative',
@@ -1033,7 +1217,6 @@ export default function Home() {
                           justifyContent: 'center',
                         }}
                       >
-                        {/* Category */}
                         <div
                           style={{
                             fontSize: '11px',
@@ -1047,7 +1230,6 @@ export default function Home() {
                           {article.category}
                         </div>
 
-                        {/* Title — nằm giữa */}
                         <h4
                           style={{
                             fontSize: '16px',
@@ -1064,7 +1246,7 @@ export default function Home() {
                           }}
                         >
                           {article.title}
-                        </h4>                        
+                        </h4>
                         <div
                           style={{
                             display: 'flex',
@@ -1188,7 +1370,6 @@ export default function Home() {
                   </ul>
                 )}
 
-                {/* Nút View more ở cuối box, căn giữa */}
                 <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
                   <button
                     onClick={() => navigate('/articles')}
@@ -1220,7 +1401,7 @@ export default function Home() {
       {renderCategorySection('AI', aiArticles)}
       {renderCategorySection('BLOCKCHAIN', blockchainArticles)}
 
-      {/* CTA Section */}
+      {/* CTA Section cuối trang */}
       <section
         style={{
           padding: '5rem 1rem',
