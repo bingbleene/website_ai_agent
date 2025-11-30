@@ -170,7 +170,58 @@ class generative_newspaper:
         """
         # Danh sách category hợp lệ lấy từ enum ArticleCategory (không dùng keys của category_map)
         valid_categories = [c.value for c in ArticleCategory]
-        prompt = f"""Viết một bài viết chi tiết về chủ đề: '{keyword}'\n\nYêu cầu bài viết phải là các chủ đề/bài đang hot nhất hiện nay theo keyword này (dựa trên xu hướng, tin tức, sự kiện nổi bật).\n\nYêu cầu format trả về CHÍNH XÁC theo mẫu sau (bắt buộc):\n\nTITLE: [Tiêu đề hấp dẫn 80-100 ký tự]\nSLUG: [url-slug-khong-dau]\nCATEGORY: [Chọn 1 trong các giá trị sau, bắt buộc đúng chính tả, không tự chế: {', '.join(valid_categories)}]\nEXCERPT: [Tóm tắt ngắn 150-200 từ]\nCONTENT:\n[Nội dung chính đầy đủ 800-1500 từ, chia thành 3-4 phần với tiêu đề phụ rõ ràng.\nMỗi phần cách nhau bằng 2 dòng trống để dễ chèn ảnh.]\n\nLưu ý:\n- TITLE: Tiêu đề hấp dẫn, thu hút người đọc\n- SLUG: Viết liền không dấu, cách nhau bằng dấu gạch ngang (ví dụ: bitcoin-tang-gia-manh)\n- CATEGORY: Phân loại chính xác theo nội dung bài viết, chỉ chọn đúng 1 trong các giá trị trên\n- EXCERPT: Tóm tắt ngắn gọn nội dung bài viết\n- CONTENT: Nội dung đầy đủ, chuyên nghiệp, có cấu trúc rõ ràng\n- Ngôn ngữ: Tiếng Việt\n- Phong cách: Chuyên nghiệp, dễ hiểu\n\nYÊU CẦU BỔ SUNG (QUAN TRỌNG): KHÔNG được lặp nội dung hoặc câu chữ đã xuất hiện trong các bài trước về cùng keyword. Hãy chọn một góc nhìn mới, cập nhật thông tin mới nhất và tránh trùng lặp.\n\nTHÊM: Ở cuối response, cung cấp 3-5 \"ALT_ANGLES\" — mỗi dòng là một tiêu đề/góc nhìn ngắn (5-12 từ) khác nhau có thể dùng để tạo tiếp bài mới từ cùng category. Định dạng bắt buộc:\n\nALT_ANGLES:\n- angle 1\n- angle 2\n- angle 3\n\nBắt đầu viết ngay bây giờ theo ĐÚNG format trên:"""
+        prompt = f"""
+        ### 1. THIẾT LẬP VAI TRÒ (ROLE - QUAN TRỌNG):
+        Bạn là một **Nhà báo Điều tra (Senior Investigative Journalist)** với 20 năm kinh nghiệm.
+        Phong cách của bạn là: Hoài nghi, Sắc bén và Chính xác.
+        Nhiệm vụ: Viết một bài “Phóng sự chuyên sâu” (In-depth Report) về chủ đề: '{keyword}'.
+        Mục tiêu: Tạo ra một tài liệu tham khảo có độ tin cậy cao, dài và chi tiết nhất có thể (hướng tới 2000-3000 từ hoặc hơn).
+
+        ### 2. YÊU CẦU VỀ NỘI DUNG & NGUỒN TIN (BẮT BUỘC):
+        1. Mọi nhận định, con số, xu hướng ĐỀU PHẢI có nguồn dẫn chứng uy tín.
+        Cách trích dẫn: Lồng ghép trực tiếp tên tổ chức/báo cáo vào câu văn (ví dụ: “Theo báo cáo quý III/2025 của Gartner…”, “Tài liệu nội bộ bị rò rỉ từ OpenAI cho thấy…”).
+        Nguồn chấp nhận: Gartner, McKinsey, Deloitte, Reuters, Bloomberg, The Financial Times, tài liệu kỹ thuật chính thức, paper khoa học… KHÔNG bịa đặt nguồn.
+
+        2. Sử dụng thuật ngữ chuyên ngành chính xác, gắn với bối cảnh thực tế 2024-2025 và các sự kiện có thật.
+
+        3. Cấu trúc tự do, mạch lạc, không ép buộc số lượng heading, viết dài và đào sâu tối đa.
+
+        ### 3. ĐỊNH DẠNG TRẢ VỀ (OUTPUT FORMAT) – TUÂN THỦ TUYỆT ĐỐI:
+
+        Trả về đúng dạng Key-Value dưới đây, không thêm bất kỳ lời giải thích nào ngoài các key này:
+
+        TITLE: [Tiêu đề mang tính báo chí, khách quan, chứa dữ kiện hoặc nghịch lý đáng chú ý + từ khóa chính. KHÔNG dùng in đậm]
+        SLUG: [slug-tieng-viet-khong-dau-khong-ky-tu-dac-biet]
+        CATEGORY: [Chọn đúng 1 trong: {', '.join(valid_categories)}]
+        EXCERPT: [Sapo báo chí 150-200 từ, tóm tắt bối cảnh + vấn đề cốt lõi + nguồn tin chủ đạo nếu có. KHÔNG dùng in đậm]
+        CONTENT:
+        [Nội dung chính bài viết bằng Markdown với các quy tắc sau:
+
+        - Sử dụng ##, ###, #### để làm heading (không dùng # cho heading chính).
+        - CẤM TUYỆT ĐỐI sử dụng in đậm (**text** hoặc __text__) ở BẤT KỲ ĐÂU trong toàn bộ phần CONTENT (kể cả tiêu đề phụ, tên công ty, con số quan trọng).
+        - Chỉ được phép dùng in nghiêng (*text* hoặc _text_) cho:
+        • Thuật ngữ tiếng Anh chuyên ngành (*Large Language Model*, *Supply Chain Attack*…)
+        • Tên báo cáo hoặc tài liệu (*The State of AI Report 2025*, *Project Stargate Whitepaper*…)
+        • Nhấn nhẹ ý nghĩa khi thực sự cần.
+        - Chèn marker ảnh đúng vị trí chuyển ý lớn: [IMG: mô tả ngắn gọn, thực tế và có tính minh hoạ cao cho đoạn đó]
+        - Trích dẫn nguồn ngay trong dòng văn, không dùng footnote.
+
+        Nghiêm cấm mọi hình thức in đậm trong toàn bộ bài viết.]
+
+        ---
+        NGUỒN THAM KHẢO (REFERENCES):
+        1. [Tên nguồn chính thức 1]
+        2. [Tên nguồn chính thức 2]
+        3. [Tên nguồn chính thức 3]
+        … (liệt kê đầy đủ các nguồn đã nhắc trong bài, KHÔNG in đậm)
+
+        ALT_ANGLES:
+        - [Góc nhìn phụ thứ nhất có thể khai thác tiếp – không in đậm]
+        - [Góc nhìn phụ thứ hai – không in đậm]
+        - [Góc nhìn phụ thứ ba – không in đậm]
+
+        ### BẮT ĐẦU NGHIÊN CỨU VÀ VIẾT NGAY BÂY GIỜ.
+        """
 
         print(f"🤖 Đang tạo bài viết cho: '{keyword}'", flush=True)
         

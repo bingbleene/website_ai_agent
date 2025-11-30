@@ -21,6 +21,7 @@ from app.core.database import get_database
 from app.core.security import get_current_user, get_current_admin_user
 from app.services.google_service import gemini_service
 from app.services.rabbitmq_service import rabbitmq_service
+from app.services.unsplash_service import UnsplashService
 from slugify import slugify
 
 router = APIRouter()

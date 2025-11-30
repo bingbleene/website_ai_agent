@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     auth,
     users,
     articles,
+    images,
     comments,
     analytics,
     ai,
@@ -21,6 +22,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(articles.router, prefix="/articles", tags=["Articles"])
+api_router.include_router(images.router, prefix="/images", tags=["Images"])
 api_router.include_router(comments.router, prefix="/comments", tags=["Comments"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(ai.router, prefix="/ai", tags=["AI Services"])

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, Eye, Calendar, Share2, Bookmark, TrendingUp, User, ThumbsUp, MessageCircle, Send } from 'lucide-react';
-import { articlesAPI } from '../services/api';
+import { articlesAPI, imagesAPI } from '../services/api';
 import Chatbot from '../components/public/Chatbot';
 
 export default function ArticleDetail() {
@@ -14,6 +14,7 @@ export default function ArticleDetail() {
   const [translateLoading, setTranslateLoading] = useState(false);
   const [currentLang, setCurrentLang] = useState('vi');
   const [translationsCache, setTranslationsCache] = useState({});
+  const [articleImages, setArticleImages] = useState([]);  // Ảnh từ collection images
 
   // Prepare article HTML: move outside useEffect so we can reuse for translations
   const prepareArticleHtml = (rawHtml) => {
@@ -354,7 +355,7 @@ export default function ArticleDetail() {
           content: prepareArticleHtml(foundArticle.content || ''),
           category: foundArticle.category,
           categoryId: 1,
-          thumbnail: foundArticle.featured_image || foundArticle.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
+          thumbnail: foundArticle.thumbnail_url || foundArticle.featured_image || foundArticle.thumbnail || 'https://via.placeholder.com/800x400?text=No+Image',
           views: foundArticle.view_count || 0,
           likes: foundArticle.like_count || 0,
           commentsCount: foundArticle.comment_count || 0,
@@ -367,6 +368,22 @@ export default function ArticleDetail() {
         setArticle(mapped);
         setOriginalArticle(mapped);
 
+        // Lấy ảnh từ collection images
+        try {
+          const imagesRes = await imagesAPI.getByArticle(id);
+          const images = imagesRes.data || [];
+          setArticleImages(images);
+          
+          // Nếu có ảnh primary, dùng làm thumbnail
+          const primaryImage = images.find(img => img.is_primary);
+          if (primaryImage) {
+            mapped.thumbnail = primaryImage.url;
+            setArticle({ ...mapped });
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not fetch images', e);
+        }
+
         // Fetch related articles (same category)
         try {
           const relatedRes = await articlesAPI.getPublished({ limit: 10 });
@@ -377,7 +394,7 @@ export default function ArticleDetail() {
             .map(a => ({
               id: a._id,
               title: a.title,
-              thumbnail: a.featured_image || a.thumbnail,
+              thumbnail: a.thumbnail_url || a.featured_image || a.thumbnail,
               category: a.category,
               views: a.view_count || 0,
               readTime: `${Math.ceil((a.content?.length || 0) / 1000)} min read`,

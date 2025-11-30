@@ -69,6 +69,16 @@ export const commentsAPI = {
   delete: (id) => api.delete(`/comments/${id}`),
 }
 
+// ===================== Images API =====================
+export const imagesAPI = {
+  getByArticle: (articleId) => api.get(`/images/article/${articleId}`),
+  getById: (id) => api.get(`/images/${id}`),
+  create: (data) => api.post('/images', data),
+  update: (id, data) => api.put(`/images/${id}`, data),
+  delete: (id) => api.delete(`/images/${id}`),
+  setPrimary: (articleId, imageId) => api.post(`/images/article/${articleId}/set-primary/${imageId}`),
+}
+
 // ===================== Analytics API =====================
 export const analyticsAPI = {
   getDashboardStats: () => api.get('/analytics/dashboard'),
