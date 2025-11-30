@@ -9,6 +9,7 @@ import {
   Tag,
   RefreshCcw,
   Zap,
+  Home,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { articlesAPI } from "../services/api";
@@ -22,7 +23,7 @@ export default function Articles() {
   const [trendingArticles, setTrendingArticles] = useState([]);
   const [categories, setCategories] = useState([{ name: "All", count: null }]);
 
-  // Hàm format thời gian hiển thị: "HH:MM · dd/MM/yyyy"
+  // HH:MM · dd/MM/yyyy
   const formatDateTime = (value) => {
     if (!value) return "N/A";
     const d = new Date(value);
@@ -30,6 +31,18 @@ export default function Articles() {
     return d.toLocaleString("vi-VN", {
       hour: "2-digit",
       minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  // dd/MM/yyyy (dùng cho dòng ngày nếu cần)
+  const formatDateOnly = (value) => {
+    if (!value) return "N/A";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "N/A";
+    return d.toLocaleDateString("vi-VN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -61,9 +74,7 @@ export default function Articles() {
               article.thumbnail ||
               "https://via.placeholder.com/800x400?text=No+Image",
             views: article.view_count || 0,
-            // readTime = thời điểm bài được đăng
             readTime: formatDateTime(publishedAtRaw),
-            // publishedAt để hiển thị ngày riêng nếu cần
             publishedAt: publishedAtRaw,
             author: article.author_name || "AI News Bot",
           };
@@ -137,7 +148,7 @@ export default function Articles() {
       <div
         style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem 1rem" }}
       >
-        {/* Header title */}
+        {/* Header title cũ – giữ nguyên */}
         <header style={{ textAlign: "center", marginBottom: "2.5rem" }}>
           <h1
             style={{
@@ -194,20 +205,20 @@ export default function Articles() {
           </div>
         </header>
 
-        {/* Hero search + banner */}
+        {/* Hero + Top trending – CHỈ CHỈNH STYLE / THÊM, KHÔNG XOÁ */}
         <section style={{ marginBottom: "2rem" }}>
-          {/* Dark hero banner */}
+          {/* Banner gradient giống hình */}
           <div
             style={{
-              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+              background: "linear-gradient(90deg, #E33B8C 0%, #4C60EF 100%)",
               borderRadius: "24px",
-              padding: "3rem 2rem",
-              minHeight: "220px",
-              boxShadow: "0 20px 50px rgba(15,23,42,0.6)",
+              padding: "2.5rem 2rem",
+              minHeight: "200px",
+              boxShadow: "0 20px 50px rgba(15,23,42,0.5)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#e5e7eb",
+              color: "#f9fafb",
               position: "relative",
               overflow: "hidden",
             }}
@@ -215,69 +226,86 @@ export default function Articles() {
             {heroArticle ? (
               <div
                 style={{
-                  maxWidth: "800px",
+                  maxWidth: "820px",
                   textAlign: "center",
                   cursor: "pointer",
                 }}
                 onClick={() => navigate(`/article/${heroArticle.id}`)}
               >
-                <div
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.22em",
-                    textTransform: "uppercase",
-                    color: "#22c55e",
-                    marginBottom: "0.75rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.4rem",
-                  }}
-                >
-                  <Sparkles size={14} />
-                  Bài viết nổi bật
-                </div>
+                {/* Tiêu đề lớn BÀI VIẾT NỔI BẬT */}
                 <h2
                   style={{
-                    fontSize: "28px",
+                    fontSize: "24px",
                     fontWeight: 800,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
                     marginBottom: "1rem",
-                    color: "#ffffff",
-                    lineHeight: 1.3,
-                    textShadow: "0 2px 10px rgba(0,0,0,0.3)",
+                  }}
+                >
+                  BÀI VIẾT NỔI BẬT
+                </h2>
+
+                {/* Tiêu đề bài */}
+                <h3
+                  style={{
+                    fontSize: "20px",
+                    fontWeight: 700,
+                    marginBottom: "0.7rem",
+                    lineHeight: 1.4,
                   }}
                 >
                   {heroArticle.title}
-                </h2>
+                </h3>
+
+                {/* Đoạn mô tả */}
                 <p
                   style={{
-                    fontSize: "15px",
-                    color: "#cbd5e1",
-                    maxWidth: "680px",
-                    margin: "0 auto 1.25rem",
+                    fontSize: "13px",
+                    maxWidth: "760px",
+                    margin: "0 auto 1.1rem",
                     lineHeight: 1.6,
+                    opacity: 0.96,
                   }}
                 >
                   {heroArticle.excerpt}
                 </p>
+
+                {/* Dòng thông tin dưới (giữa ô) */}
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "center",
-                    gap: "1.25rem",
-                    fontSize: "12px",
-                    color: "#9ca3af",
+                    gap: "2.5rem",
+                    fontSize: "11px",
+                    opacity: 0.95,
                   }}
                 >
-                  <span>{heroArticle.category}</span>
                   <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Calendar size={12} />
+                    {formatDateOnly(heroArticle.publishedAt)}
+                  </span>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
                     <Clock size={12} />
                     {heroArticle.readTime}
                   </span>
                   <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
                     <Eye size={12} />
                     {heroArticle.views || 0} lượt xem
@@ -285,16 +313,99 @@ export default function Articles() {
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: "center", color: "#6b7280" }}>
+              <div style={{ textAlign: "center", color: "#e5e7eb" }}>
                 Chưa có bài viết nổi bật.
               </div>
             )}
           </div>
 
-          {/* Marquee Banner - Dòng chữ chạy */}
+          {/* Thanh category giống dòng dưới banner trong hình – CHỈ ADD */}
+          <nav
+            style={{
+              marginTop: "0.75rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "1.5rem",
+              padding: "0.5rem 0.25rem 0",
+              overflowX: "auto",
+              position: "relative",
+            }}
+          >
+            {/* Nút Home */}
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("All")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "32px",
+                height: "32px",
+                borderRadius: "999px",
+                border: "none",
+                background: selectedCategory === "All" ? "#111827" : "transparent",
+                boxShadow:
+                  selectedCategory === "All"
+                    ? "0 4px 12px rgba(0,0,0,0.25)"
+                    : "none",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <Home
+                size={16}
+                color={selectedCategory === "All" ? "#ffffff" : "#111827"}
+              />
+            </button>
+
+            {/* Categories */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "1.5rem",
+                fontSize: "14px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {categories
+                .filter((cat) => cat.name !== "All")
+                .map((cat) => (
+                  <span
+                    key={cat.name}
+                    onClick={() => setSelectedCategory(cat.name)}
+                    style={{
+                      cursor: "pointer",
+                      color: selectedCategory === cat.name ? "#111827" : "#444",
+                      borderBottom:
+                        selectedCategory === cat.name
+                          ? "2px solid transparent"
+                          : "none",
+                    }}
+                  >
+                    {cat.name.toUpperCase()}
+                  </span>
+                ))}
+            </div>
+
+            {/* LINE GRADIENT */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                height: "2px",
+                background: "linear-gradient(90deg, #4C60EF, #E33B8C)",
+              }}
+            />
+          </nav>
+
+          {/* KHUNG TOP TRENDING CHẠY – GIỮ NGUYÊN CODE CỦA CẬU */}
           <div
             style={{
-              marginTop: "1.5rem",
+              marginTop: "1.2rem",
               background: "linear-gradient(90deg, #0f172a 0%, #1e293b 100%)",
               borderRadius: "12px",
               padding: "0.75rem 0",
@@ -364,7 +475,7 @@ export default function Articles() {
           </div>
         </section>
 
-        {/* MAIN GRID */}
+        {/* MAIN GRID – giữ nguyên từ đây xuống */}
         <main
           style={{
             display: "grid",
@@ -525,7 +636,6 @@ export default function Articles() {
                           color: "#9ca3af",
                         }}
                       >
-                        
                         <div
                           style={{
                             display: "flex",
