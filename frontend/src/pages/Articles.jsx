@@ -9,6 +9,7 @@ import {
   Tag,
   RefreshCcw,
   Zap,
+  Home,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { articlesAPI } from "../services/api";
@@ -22,84 +23,131 @@ export default function Articles() {
   const [trendingArticles, setTrendingArticles] = useState([]);
   const [categories, setCategories] = useState([{ name: "All", count: null }]);
 
-  // Fetch data from backend API
+  // HH:MM · dd/MM/yyyy
+  const formatDateTime = (value) => {
+    if (!value) return "N/A";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "N/A";
+    return d.toLocaleString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  // dd/MM/yyyy (dùng cho dòng ngày nếu cần)
+  const formatDateOnly = (value) => {
+    if (!value) return "N/A";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "N/A";
+    return d.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  // Fetch trending & categories once; articles are fetched server-side on filter/search
   useEffect(() => {
-    const fetchData = async () => {
+    let mounted = true;
+
+    const init = async () => {
       try {
-        setLoading(true);
-
-        // Published articles
-        const articlesRes = await articlesAPI.getPublished({ limit: 50 });
-        const rawArticles = articlesRes.data || [];
-
-        const mappedArticles = rawArticles.map((article) => ({
-          id: article._id || article.id,
-          title: article.title,
-          excerpt: article.excerpt || article.summary || "",
-          content: article.content || "",
-          category: article.category || "Uncategorized",
-          thumbnail:
-            article.featured_image ||
-            article.thumbnail ||
-            "https://via.placeholder.com/800x400?text=No+Image",
-          views: article.view_count || 0,
-          readTime: `${Math.ceil(
-            (article.content?.length || 0) / 1000
-          )} min read`,
-          publishedAt:
-            article.published_at || article.publishedAt || article.created_at,
-          author: article.author_name || "AI News Bot",
-        }));
-
-        setAllArticles(mappedArticles);
-
         // Trending articles
         const trendingRes = await articlesAPI.getTrending(3);
         const rawTrending = trendingRes.data || [];
-        const mappedTrending = rawTrending.map((article) => ({
-          id: article._id || article.id,
-          title: article.title,
-          excerpt: article.excerpt || article.summary || "",
-          category: article.category || "General",
-          views: article.view_count || 0,
-          readTime: `${Math.ceil(
-            (article.content?.length || 0) / 1000
-          )} min read`,
-        }));
-        setTrendingArticles(mappedTrending);
+        const mappedTrending = rawTrending.map((article) => {
+          const publishedAtRaw =
+            article.published_at || article.publishedAt || article.created_at;
+
+          return {
+            id: article._id || article.id,
+            title: article.title,
+            excerpt: article.excerpt || article.summary || "",
+            category: article.category || "Tổng hợp",
+            views: article.view_count || 0,
+            readTime: formatDateTime(publishedAtRaw),
+            publishedAt: publishedAtRaw,
+          };
+        });
+        if (mounted) setTrendingArticles(mappedTrending);
 
         // Categories
         const categoriesRes = await articlesAPI.getCategories();
         const rawCategories = categoriesRes.data.categories || [];
-        setCategories([{ name: "All", count: null }, ...rawCategories]);
-
-        setLoading(false);
+        if (mounted)
+          setCategories([{ name: "All", count: null }, ...rawCategories]);
       } catch (error) {
-        console.error("❌ Error fetching articles:", error);
-        setLoading(false);
-        setAllArticles([]);
-        setTrendingArticles([]);
+        console.error("❌ Error initializing articles page:", error);
       }
     };
 
-    fetchData();
+    init();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Filter articles
-  const filteredArticles = allArticles.filter((article) => {
-    const title = (article.title || "").toLowerCase();
-    const excerpt = (article.excerpt || "").toLowerCase();
-    const q = (searchQuery || "").toLowerCase();
+  // Server-side fetch for articles when search or category changes (with debounce)
+  useEffect(() => {
+    const controller = { cancelled: false };
+    const fetchArticles = async () => {
+      try {
+        setLoading(true);
+        const params = { limit: 50 };
+        if (selectedCategory && selectedCategory !== "All")
+          params.category = selectedCategory;
+        if (searchQuery && searchQuery.trim().length > 0)
+          params.search = searchQuery.trim();
 
-    const matchesSearch = !q || title.includes(q) || excerpt.includes(q);
+        const res = await articlesAPI.getPublished(params);
+        const rawArticles = res.data || [];
 
-    const matchesCategory =
-      selectedCategory === "All" ||
-      (article.category || "").trim().toLowerCase() ===
-        selectedCategory.trim().toLowerCase();
+        const mappedArticles = rawArticles.map((article) => {
+          const publishedAtRaw =
+            article.published_at || article.publishedAt || article.created_at;
 
-    return matchesSearch && matchesCategory;
-  });
+          return {
+            id: article._id || article.id,
+            title: article.title,
+            excerpt: article.excerpt || article.summary || "",
+            content: article.content || "",
+            category: article.category || "Uncategorized",
+            thumbnail:
+              article.featured_image ||
+              article.thumbnail ||
+              "https://via.placeholder.com/800x400?text=No+Image",
+            views: article.view_count || 0,
+            readTime: formatDateTime(publishedAtRaw),
+            publishedAt: publishedAtRaw,
+            author: article.author_name || "AI News Bot",
+          };
+        });
+
+        if (!controller.cancelled) setAllArticles(mappedArticles);
+      } catch (error) {
+        console.error("❌ Error fetching articles:", error);
+        if (!controller.cancelled) setAllArticles([]);
+      } finally {
+        if (!controller.cancelled) setLoading(false);
+      }
+    };
+
+    // debounce
+    const t = setTimeout(() => {
+      fetchArticles();
+    }, 350);
+
+    return () => {
+      controller.cancelled = true;
+      clearTimeout(t);
+    };
+  }, [searchQuery, selectedCategory]);
+
+  // Server returns filtered articles; use as-is
+  const filteredArticles = allArticles;
 
   const heroArticle = filteredArticles[0] || null;
   const latestArticles = filteredArticles.slice(1, 6);
@@ -115,7 +163,7 @@ export default function Articles() {
       <div
         style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem 1rem" }}
       >
-        {/* Header title */}
+        {/* Header title cũ – giữ nguyên */}
         <header style={{ textAlign: "center", marginBottom: "2.5rem" }}>
           <h1
             style={{
@@ -127,13 +175,12 @@ export default function Articles() {
               marginBottom: "0.75rem",
             }}
           >
-            AI NEWS ARTICLES
+            BÀI VIẾT AI NEWS
           </h1>
           <p
             style={{ color: "#6b7280", fontSize: "14px", marginBottom: "1rem" }}
           >
-            Discover the latest insights and breakthroughs in artificial
-            intelligence
+            Khám phá những góc nhìn và xu hướng mới nhất về trí tuệ nhân tạo
           </p>
 
           <div
@@ -158,7 +205,7 @@ export default function Articles() {
               }}
             >
               <RefreshCcw size={14} />
-              Refresh
+              Làm mới
             </button>
             <span
               style={{
@@ -168,25 +215,25 @@ export default function Articles() {
               }}
             >
               <Zap size={14} color="#f97316" />
-              AI Sync
+              Đồng bộ AI
             </span>
           </div>
         </header>
 
-        {/* Hero search + banner */}
+        {/* Hero + Top trending – CHỈ CHỈNH STYLE / THÊM, KHÔNG XOÁ */}
         <section style={{ marginBottom: "2rem" }}>
-          {/* Dark hero banner */}
+          {/* Banner gradient giống hình */}
           <div
             style={{
-              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+              background: "linear-gradient(90deg, #E33B8C 0%, #4C60EF 100%)",
               borderRadius: "24px",
-              padding: "3rem 2rem",
-              minHeight: "220px",
-              boxShadow: "0 20px 50px rgba(15,23,42,0.6)",
+              padding: "2.5rem 2rem",
+              minHeight: "200px",
+              boxShadow: "0 20px 50px rgba(15,23,42,0.5)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#e5e7eb",
+              color: "#f9fafb",
               position: "relative",
               overflow: "hidden",
             }}
@@ -194,86 +241,187 @@ export default function Articles() {
             {heroArticle ? (
               <div
                 style={{
-                  maxWidth: "800px",
+                  maxWidth: "820px",
                   textAlign: "center",
                   cursor: "pointer",
                 }}
                 onClick={() => navigate(`/article/${heroArticle.id}`)}
               >
-                <div
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.22em",
-                    textTransform: "uppercase",
-                    color: "#22c55e",
-                    marginBottom: "0.75rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.4rem",
-                  }}
-                >
-                  <Sparkles size={14} />
-                  Featured story
-                </div>
+                {/* Tiêu đề lớn BÀI VIẾT NỔI BẬT */}
                 <h2
                   style={{
-                    fontSize: "28px",
+                    fontSize: "24px",
                     fontWeight: 800,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
                     marginBottom: "1rem",
-                    color: "#ffffff",
-                    lineHeight: 1.3,
-                    textShadow: "0 2px 10px rgba(0,0,0,0.3)",
+                  }}
+                >
+                  BÀI VIẾT NỔI BẬT
+                </h2>
+
+                {/* Tiêu đề bài */}
+                <h3
+                  style={{
+                    fontSize: "20px",
+                    fontWeight: 700,
+                    marginBottom: "0.7rem",
+                    lineHeight: 1.4,
                   }}
                 >
                   {heroArticle.title}
-                </h2>
+                </h3>
+
+                {/* Đoạn mô tả */}
                 <p
                   style={{
-                    fontSize: "15px",
-                    color: "#cbd5e1",
-                    maxWidth: "680px",
-                    margin: "0 auto 1.25rem",
+                    fontSize: "13px",
+                    maxWidth: "760px",
+                    margin: "0 auto 1.1rem",
                     lineHeight: 1.6,
+                    opacity: 0.96,
                   }}
                 >
                   {heroArticle.excerpt}
                 </p>
+
+                {/* Dòng thông tin dưới (giữa ô) */}
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "center",
-                    gap: "1.25rem",
-                    fontSize: "12px",
-                    color: "#9ca3af",
+                    gap: "2.5rem",
+                    fontSize: "11px",
+                    opacity: 0.95,
                   }}
                 >
-                  <span>{heroArticle.category}</span>
                   <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Calendar size={12} />
+                    {formatDateOnly(heroArticle.publishedAt)}
+                  </span>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
                     <Clock size={12} />
                     {heroArticle.readTime}
                   </span>
                   <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
                     <Eye size={12} />
-                    {heroArticle.views || 0} views
+                    {heroArticle.views || 0} lượt xem
                   </span>
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: "center", color: "#6b7280" }}>
-                No featured article yet.
+              <div style={{ textAlign: "center", color: "#e5e7eb" }}>
+                Chưa có bài viết nổi bật.
               </div>
             )}
           </div>
 
-          {/* Marquee Banner - Dòng chữ chạy */}
+          {/* Thanh category giống dòng dưới banner trong hình – CHỈ ADD */}
+          <nav
+            style={{
+              marginTop: "0.75rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "1.5rem",
+              padding: "0.5rem 0.25rem 0",
+              overflowX: "auto",
+              position: "relative",
+            }}
+          >
+            {/* Nút Home */}
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("All")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "32px",
+                height: "32px",
+                borderRadius: "999px",
+                border: "none",
+                background:
+                  selectedCategory === "All" ? "#111827" : "transparent",
+                boxShadow:
+                  selectedCategory === "All"
+                    ? "0 4px 12px rgba(0,0,0,0.25)"
+                    : "none",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <Home
+                size={16}
+                color={selectedCategory === "All" ? "#ffffff" : "#111827"}
+              />
+            </button>
+
+            {/* Categories */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "1.5rem",
+                fontSize: "14px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {categories
+                .filter((cat) => cat.name !== "All")
+                .map((cat) => (
+                  <span
+                    key={cat.name}
+                    onClick={() => setSelectedCategory(cat.name)}
+                    style={{
+                      cursor: "pointer",
+                      color: selectedCategory === cat.name ? "#111827" : "#444",
+                      borderBottom:
+                        selectedCategory === cat.name
+                          ? "2px solid transparent"
+                          : "none",
+                    }}
+                  >
+                    {cat.name.toUpperCase()}
+                  </span>
+                ))}
+            </div>
+
+            {/* LINE GRADIENT */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "100%",
+                height: "2px",
+                background: "linear-gradient(90deg, #4C60EF, #E33B8C)",
+              }}
+            />
+          </nav>
+
+          {/* KHUNG TOP TRENDING CHẠY – GIỮ NGUYÊN CODE CỦA CẬU */}
           <div
             style={{
-              marginTop: "1.5rem",
+              marginTop: "1.2rem",
               background: "linear-gradient(90deg, #0f172a 0%, #1e293b 100%)",
               borderRadius: "12px",
               padding: "0.75rem 0",
@@ -303,7 +451,11 @@ export default function Articles() {
               {[...Array(2)].map((_, repeatIndex) => (
                 <div
                   key={repeatIndex}
-                  style={{ display: "flex", gap: "2rem", alignItems: "center" }}
+                  style={{
+                    display: "flex",
+                    gap: "2rem",
+                    alignItems: "center",
+                  }}
                 >
                   <span
                     style={{
@@ -317,7 +469,7 @@ export default function Articles() {
                       gap: "0.5rem",
                     }}
                   >
-                    <TrendingUp size={14} /> Trending Now
+                    <TrendingUp size={14} /> Đang thịnh hành
                   </span>
                   {trendingArticles.map((item) => (
                     <span
@@ -330,7 +482,7 @@ export default function Articles() {
                       }}
                       onClick={() => navigate(`/article/${item.id}`)}
                     >
-                      {item.title}
+                      {item.title} · {item.readTime}
                     </span>
                   ))}
                 </div>
@@ -339,7 +491,7 @@ export default function Articles() {
           </div>
         </section>
 
-        {/* MAIN GRID */}
+        {/* MAIN GRID – giữ nguyên từ đây xuống */}
         <main
           style={{
             display: "grid",
@@ -377,7 +529,7 @@ export default function Articles() {
                   </style>
                 </div>
                 <p style={{ marginTop: "1rem", color: "#6b7280" }}>
-                  Loading articles...
+                  Đang tải danh sách bài viết...
                 </p>
               </div>
             )}
@@ -393,7 +545,8 @@ export default function Articles() {
                 }}
               >
                 <p style={{ fontSize: "16px", color: "#6b7280" }}>
-                  No articles found. Try different filters.
+                  Không tìm thấy bài viết phù hợp. Hãy thử từ khóa hoặc bộ lọc
+                  khác.
                 </p>
               </div>
             )}
@@ -499,18 +652,6 @@ export default function Articles() {
                           color: "#9ca3af",
                         }}
                       >
-                        <span>
-                          {article.publishedAt
-                            ? new Date(article.publishedAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                }
-                              )
-                            : "N/A"}
-                        </span>
                         <div
                           style={{
                             display: "flex",
@@ -574,13 +715,13 @@ export default function Articles() {
                     color: "#111827",
                   }}
                 >
-                  Latest news
+                  Tin mới nhất
                 </h3>
               </div>
 
               {latestArticles.length === 0 && !loading && (
                 <p style={{ fontSize: "13px", color: "#9ca3af" }}>
-                  No recent news.
+                  Chưa có tin mới.
                 </p>
               )}
 

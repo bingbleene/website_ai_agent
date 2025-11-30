@@ -50,6 +50,7 @@ category_map = {
     "AI trong chụp ảnh": "AI",
     "AI tạo video": "AI",
     "Hệ Điều Hành": "technology",
+    "Developer Tools": "technology",
 }
 
 
@@ -124,9 +125,32 @@ class ArticleBase(BaseModel):
     @validator("category", pre=True)
     def normalize_category(cls, v):
         # Use category_map to normalize values
+        if not v:
+            return "technology"
+
+        # direct map
         if v in category_map:
             return category_map[v]
-        return v
+
+        # try case-insensitive match for known map keys
+        for k, mapped in category_map.items():
+            if isinstance(v, str) and v.strip().lower() == k.strip().lower():
+                return mapped
+
+        # try to match enum values (case-insensitive)
+        try:
+            from enum import Enum
+
+            # get all allowed enum values
+            allowed = [c.value for c in ArticleCategory]
+            for a in allowed:
+                if isinstance(v, str) and v.strip().lower() == a.strip().lower():
+                    return a
+        except Exception:
+            pass
+
+        # fallback to 'technology' when unknown to avoid validation error
+        return "technology"
 
 
 class ArticleCreate(ArticleBase):
