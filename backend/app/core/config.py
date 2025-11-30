@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
 
+    # Mistral (optional LLM provider)
+    MISTRAL_API_KEY: str = ""
+    MISTRAL_MODEL: str = ""
+
     # Google Cloud
     GOOGLE_CLOUD_PROJECT_ID: str = ""
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
